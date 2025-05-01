@@ -50,10 +50,10 @@ class UserSeeder extends Seeder
         ]);
 
         User::factory()->create([
-            'email' => 'tenagakerja@mailinator.com',
-            'role_id' => Role::where('role_name', 'Tenaga Kerja')->first()->id,
+            'email' => 'karyawan@mailinator.com',
+            'role_id' => Role::where('role_name', 'Karyawan')->first()->id,
             'divisi_id' => $divisiCat->id,
-            'name' => 'Tenaga Kerja'
+            'name' => 'Karyawan'
         ]);
     }
 }

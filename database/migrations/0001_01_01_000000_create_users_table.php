@@ -13,15 +13,16 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('role_id'); 
             $table->foreignId('role_id')
-                    ->nullable()             // kolom mesti nullable dulu
-                    ->constrained('roles')
-                    ->nullOnDelete();        // ON DELETE SET NULL
+                ->nullable()
+                ->constrained('roles')
+                ->nullOnDelete();
+
+            // DIVISI — nullable + SET NULL
             $table->foreignId('divisi_id')
-                    ->nullable()             // divisi memang boleh kosong
-                    ->constrained('divisis')
-                    ->nullOnDelete();        // ON DELETE SET NULL
+                ->nullable()
+                ->constrained('divisis')
+                ->nullOnDelete();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
