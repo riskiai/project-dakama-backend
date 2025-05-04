@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TaxController;
 use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
@@ -38,5 +39,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('divisi/{id}', [DivisiController::class, 'show']);
     Route::put('divisi-update/{id}', [DivisiController::class, 'update']);
     Route::delete('divisi-destroy/{id}', [DivisiController::class, 'destroy']);
+
+    // Tax
+    Route::get('tax', [TaxController::class, 'index']);
+    Route::post('tax-store', [TaxController::class, 'store']);
+    Route::get('tax/{id}', [TaxController::class, 'show']);
+    Route::put('tax-update/{id}', [TaxController::class, 'update']);
+    Route::delete('tax-destroy/{id}', [TaxController::class, 'destroy']);
 
 });
