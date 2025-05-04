@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DivisiController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -31,5 +32,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     //    Route::delete('destroy/{id}', [UsersController::class, 'destroy']);
     });
 
+    Route::get('divisi', [DivisiController::class, 'index']);
+    Route::get('divisiall', [DivisiController::class, 'divisiall']);
+    Route::post('divisi-store', [DivisiController::class, 'store']);
+    Route::get('divisi/{id}', [DivisiController::class, 'show']);
+    Route::put('divisi-update/{id}', [DivisiController::class, 'update']);
+    Route::delete('divisi-destroy/{id}', [DivisiController::class, 'destroy']);
 
 });
