@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('taxs', function (Blueprint $table) {
-            $table->id(); 
-            $table->string('name'); 
-            $table->text('description'); 
-            $table->string('percent'); 
-            $table->string('type'); 
-            $table->timestamps(); 
-            $table->softDeletes(); 
+        Schema::create('contact_type', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
         });
     }
 
@@ -27,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('taxs');
+        Schema::dropIfExists('contact_type');
     }
 };

@@ -4,9 +4,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\DivisiController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\ContactTypeController;
 
 Route::prefix('auth')->group(function () {
     Route::post('login', LoginController::class);
@@ -46,5 +48,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('tax/{id}', [TaxController::class, 'show']);
     Route::put('tax-update/{id}', [TaxController::class, 'update']);
     Route::delete('tax-destroy/{id}', [TaxController::class, 'destroy']);
+
+    /* Contact */
+    Route::get('contact', [ContactController::class, 'index']);
+    Route::get('contact/name/all', [ContactController::class, 'companyAll']);
+    Route::post('contact-store', [ContactController::class, 'store']);
+    Route::post('contact-update/{id}', [ContactController::class, 'update']);
+    Route::get('contact/{id}', [ContactController::class, 'show']);
+    Route::get('contactall', [ContactController::class, 'contactall']);
+    Route::get('contact-showtype', [ContactController::class, 'showByContactType']);
+    Route::delete('contact-destroy/{id}', [ContactController::class, 'destroy']);
+
+    // ContactType
+        Route::prefix('contact-type')->group(function () {
+           Route::get('/', [ContactTypeController::class, 'index']);
+           Route::get('/{id}', [ContactTypeController::class, 'show']);
+       });
 
 });
