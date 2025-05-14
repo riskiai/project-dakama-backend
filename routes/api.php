@@ -10,6 +10,7 @@ use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\Project\TaskController;
+use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
 
 Route::prefix('auth')->group(function () {
@@ -77,10 +78,27 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Project
     Route::prefix('project')->group(function () {
+        // Task Project
+        Route::get('task', [TaskController::class, 'index']);
+        Route::get('taskall', [TaskController::class, 'indexall']);
+        Route::post('task-create', [TaskController::class, 'store']);
+        Route::get('task/{id}', [TaskController::class, 'show']);
+        Route::put('task-edit/{id}', [TaskController::class, 'update']);
+        Route::delete('task-delete/{id}', [TaskController::class, 'destroy']);
+
+        // Budget Project
+        Route::get('budget', [BudgetController::class, 'index']);
+        Route::get('budgetall', [BudgetController::class, 'indexall']);
+        Route::post('budget-create', [BudgetController::class, 'store']);
+        Route::get('budget/{id}', [BudgetController::class, 'show']);
+        Route::put('budget-edit/{id}', [BudgetController::class, 'update']);
+        Route::delete('budget-delete/{id}', [BudgetController::class, 'destroy']);
+
         // Projects
         Route::get('/', [ProjectController::class, 'index']);
         Route::get('/all', [ProjectController::class, 'projectAll']);
         Route::get('/names', [ProjectController::class, 'indexAll']);
+        Route::get('/counting', [ProjectController::class, 'counting']);
         Route::get('/{id}', [ProjectController::class, 'show']);
         Route::post('/create-project', [ProjectController::class, 'createProject']);
         Route::put('/update/{id}', [ProjectController::class, 'update']);
@@ -96,13 +114,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/update-termin/{id}', [ProjectController::class, 'updateTermin']);
         Route::delete('/delete-termin/{id}', [ProjectController::class, 'deleteTermin']);
 
-        // Task Project
-        Route::get('task', [TaskController::class, 'index']);
-        Route::get('taskall', [TaskController::class, 'indexall']);
-        Route::post('task-create', [TaskController::class, 'store']);
-        Route::get('task/{id}', [TaskController::class, 'show']);
-        Route::put('task-edit/{id}', [TaskController::class, 'update']);
-        Route::delete('task-delete/{id}', [TaskController::class, 'destroy']);
+     
 
     });
 

@@ -215,6 +215,120 @@ class ProjectController extends Controller
         return new ProjectCollection(collect([$project]));
     }
 
+    public function counting(Request $request)
+    {
+        $query = Project::query();
+
+        // Terapkan filter berdasarkan peran pengguna
+        /* if ($request->has('role_id')) {
+            // Ambil array role_id dari request, pastikan dalam bentuk array
+            $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
+
+            // Terapkan filter untuk role_id
+            $query->whereHas('tenagaKerja', function ($q) use ($roleIds) {
+                $q->whereIn('role_id', $roleIds); 
+            });
+        } */
+
+        /* if ($request->has('status_cost_progres')) {
+            $statusCostProgress = $request->status_cost_progres;
+            $query->where('status_cost_progres', $statusCostProgress);
+        } */
+
+        /* if ($request->has('divisi_name')) {
+            $divisiNames = is_array($request->divisi_name) ? $request->divisi_name : explode(',', $request->divisi_name);
+
+            $query->whereHas('tenagaKerja.divisi', function ($q) use ($divisiNames) {
+                $q->whereIn('name', $divisiNames); // Filter berdasarkan name divisi
+            });
+        } */
+
+        if ($request->has('request_status_owner')) {
+            $query->where('request_status_owner', $request->request_status_owner);
+        }
+
+        if ($request->has('no_dokumen_project')) {
+            $query->where('no_dokumen_project', 'like', '%' . $request->no_dokumen_project . '%');
+        } 
+
+        if ($request->has('type_projects')) {
+            $typeProjects = is_array($request->type_projects) 
+                ? $request->type_projects 
+                : explode(',', $request->type_projects);
+    
+            $query->whereIn('type_projects', $typeProjects); // Filter proyek berdasarkan type_projects
+        }
+
+        // Lakukan filter berdasarkan project jika ada
+        if ($request->has('project')) {
+            $query->where('id', $request->project);
+        }
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('vendor')) {
+            $query->where('company_id', $request->vendor);
+        }
+
+        if ($request->has('date')) {
+            $date = str_replace(['[', ']'], '', $request->date); 
+            $date = explode(", ", $date); 
+            
+            $query->whereRaw('STR_TO_DATE(date, "%Y-%m-%d") BETWEEN ? AND ?', [$date[0], $date[1]]);
+        }
+
+        if ($request->has('year')) {
+            $year = $request->year;
+            $query->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$year]);
+        }        
+
+        // Ambil seluruh data tanpa paginasi
+        $collection = $query->get();
+
+        // Menghitung total billing, cost_estimate, dan margin untuk seluruh data
+        $totalBilling = $collection->sum('billing');
+        $totalCostEstimate = $collection->sum('cost_estimate');
+        $totalMargin = $collection->sum('margin');
+
+        // Menghitung persentase margin terhadap billing
+        $percent = ($totalBilling > 0) ? ($totalMargin / $totalBilling) * 100 : 0;
+        $percent = round($percent, 2) . '%';
+
+        $totalProjects = $collection->count();
+        
+        // $totalHargaType = (float) $query->sum('harga_type_project');
+
+        /*  $totalHargaBorongan = SpbProject::where('spbproject_category_id', SpbProject_Category::BORONGAN)
+        ->whereHas('project', function ($q) use ($request) {
+            // Filter berdasarkan proyek yang dipilih
+            if ($request->has('project')) {
+                $q->where('id', $request->project);
+            }
+            // Filter berdasarkan vendor jika ada
+            if ($request->has('vendor')) {
+                $q->where('company_id', $request->vendor);
+            }
+            // Filter berdasarkan tahun jika ada
+            if ($request->has('year')) {
+                $q->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$request->year]);
+            }
+        })
+        ->sum('harga_total_pembayaran_borongan_spb'); */
+
+        // Response data
+        return response()->json([
+            "billing" => $totalBilling,
+            "cost_estimate" => $totalCostEstimate,
+            "margin" => $totalMargin,
+            "percent" => $percent,
+            "total_projects" => $totalProjects,
+            // "harga_type_project_total_borongan" => $totalHargaType,
+            // "total_harga_borongan_spb" => $totalHargaBorongan,
+        ]);
+    }
+
 
     public function createProject(CreateRequest $request) {
          DB::beginTransaction(); 

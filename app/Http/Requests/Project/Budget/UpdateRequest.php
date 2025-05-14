@@ -2,7 +2,11 @@
 
 namespace App\Http\Requests\Project\Budget;
 
+use App\Facades\MessageDakama;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Contracts\Validation\Validator;
 
 class UpdateRequest extends FormRequest
 {
@@ -11,7 +15,7 @@ class UpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true; // diubah dari false agar dapat digunakan
     }
 
     /**
@@ -22,7 +26,22 @@ class UpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'project_id'   => 'required|exists:projects,id',
+            'nama_budget'  => 'required|string|max:255',
+            'type'         => 'required|in:1,2', // 1: JASA, 2: MATERIAL
+            'nominal'      => 'required|numeric|min:0',
         ];
+    }
+
+
+    protected function failedValidation(Validator $validator)
+    {
+        $response = new JsonResponse([
+            'status' => MessageDakama::WARNING,
+            'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+            'message' => $validator->errors()
+        ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+
+        throw new ValidationException($validator, $response);
     }
 }

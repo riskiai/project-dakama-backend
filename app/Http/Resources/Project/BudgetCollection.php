@@ -2,18 +2,42 @@
 
 namespace App\Http\Resources\Project;
 
+use App\Models\Budget;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class BudgetCollection extends ResourceCollection
 {
-    /**
-     * Transform the resource collection into an array.
-     *
-     * @return array<int|string, mixed>
-     */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        $data = [];
+
+        foreach ($this as $budget) {
+            $data[] = [
+                'id'         => $budget->id,
+                 'project' => [
+                    'id' => $budget->project_id,
+                    'name' => optional($budget->project)->name,
+                ],
+                'nama_budget'  => $budget->nama_budget,
+                'type'       => $this->typetask($budget),
+                'nominal'    => $budget->nominal,
+                'created_at' => $budget->created_at,
+                'updated_at' => $budget->updated_at,
+            ];
+        }
+
+        return $data;
+    }
+
+    protected function typetask(Budget $budget)
+    {
+        if ($budget->type == Budget::JASA) {
+            return 'Jasa';
+        } elseif ($budget->type == Budget::MATERIAL) {
+            return 'Material';
+        } else {
+            return 'Tidak Diketahui';
+        }
     }
 }
