@@ -9,6 +9,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
+use App\Http\Controllers\Project\TaskController;
+use App\Http\Controllers\Project\ProjectController;
 
 Route::prefix('auth')->group(function () {
     Route::post('login', LoginController::class);
@@ -42,6 +44,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
        Route::delete('destroy/{id}', [UsersController::class, 'destroy']);
     });
 
+    // Divisi
     Route::get('divisi', [DivisiController::class, 'index']);
     Route::get('divisiall', [DivisiController::class, 'divisiall']);
     Route::post('divisi-store', [DivisiController::class, 'store']);
@@ -67,9 +70,40 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('contact-destroy/{id}', [ContactController::class, 'destroy']);
 
     // ContactType
-        Route::prefix('contact-type')->group(function () {
+    Route::prefix('contact-type')->group(function () {
            Route::get('/', [ContactTypeController::class, 'index']);
            Route::get('/{id}', [ContactTypeController::class, 'show']);
-       });
+    });
+
+    // Project
+    Route::prefix('project')->group(function () {
+        // Projects
+        Route::get('/', [ProjectController::class, 'index']);
+        Route::get('/all', [ProjectController::class, 'projectAll']);
+        Route::get('/names', [ProjectController::class, 'indexAll']);
+        Route::get('/{id}', [ProjectController::class, 'show']);
+        Route::post('/create-project', [ProjectController::class, 'createProject']);
+        Route::put('/update/{id}', [ProjectController::class, 'update']);
+        Route::put('/accept/{id}', [ProjectController::class, 'accept']);
+        Route::put('/reject/{id}', [ProjectController::class, 'reject']);
+        Route::put('/closed/{id}', [ProjectController::class, 'closed']);
+        Route::put('/bonus/{id}', [ProjectController::class, 'bonus']);
+        Route::put('/cancel/{id}', [ProjectController::class, 'cancel']);
+        Route::delete('/delete/{id}', [ProjectController::class, 'destroy']);
+
+        // Project Termin
+        Route::post('/payment-termin/{id}', [ProjectController::class, 'paymentTermin']);
+        Route::put('/update-termin/{id}', [ProjectController::class, 'updateTermin']);
+        Route::delete('/delete-termin/{id}', [ProjectController::class, 'deleteTermin']);
+
+        // Task Project
+        Route::get('task', [TaskController::class, 'index']);
+        Route::get('taskall', [TaskController::class, 'indexall']);
+        Route::post('task-create', [TaskController::class, 'store']);
+        Route::get('task/{id}', [TaskController::class, 'show']);
+        Route::put('task-edit/{id}', [TaskController::class, 'update']);
+        Route::delete('task-delete/{id}', [TaskController::class, 'destroy']);
+
+    });
 
 });

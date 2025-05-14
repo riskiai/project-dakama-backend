@@ -493,7 +493,4 @@ class UsersController extends Controller
             return MessageDakama::error('An error occurred while updating the password: ' . $th->getMessage());
         }
     }
-
-    
-
 }

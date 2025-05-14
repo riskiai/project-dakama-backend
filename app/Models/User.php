@@ -66,4 +66,15 @@ class User extends Authenticatable
     public function salary() : HasOne {
         return $this->hasOne(UserSalary::class, 'user_id', 'id');
     }
+
+     public function hasRole($role)
+    {
+        if (is_string($role)) {
+            return $this->role && $this->role->role_name === $role;
+        } elseif (is_int($role)) {
+            return $this->role_id === $role;
+        }
+
+        return false;
+    }
 }
