@@ -64,6 +64,16 @@ class UsersController extends Controller
             $query->whereBetween('created_at', $date);
         }
 
+        if ($request->has('status_users')) {
+            $statusParam = strtolower($request->status_users);
+
+            if (in_array($statusParam, ['1', 1, 'aktif'])) {
+                $query->where('status', User::AKTIF);
+            } elseif (in_array($statusParam, ['2', 2, 'tidak_aktif'])) {
+                $query->where('status', User::TIDAK_AKTIF);
+            }
+        }
+
         $users = $query->paginate($request->per_page);
 
         return new UsersCollection($users);
@@ -101,6 +111,7 @@ class UsersController extends Controller
                     'name' => $user->divisi->name ?? null,
                     'kode_divisi' => $user->divisi->kode_divisi ?? null,
                 ],
+                'status_users' => $this->statusUsersKubika($user),
                  'daily_salary' => $user->salary ? $user->salary->daily_salary : 0,
                 'hourly_salary' => $user->salary ? $user->salary->hourly_salary : 0,
                 'hourly_overtime_salary' => $user->salary ? $user->salary->hourly_overtime_salary : 0,
@@ -110,6 +121,17 @@ class UsersController extends Controller
                 'updated_at' => $user->updated_at,
             ]
         ]);
+    }
+
+    protected function statusUsersKubika($user): string
+    {
+        if ((int) $user->status === User::AKTIF) {
+            return 'Aktif';
+        } elseif ((int) $user->status === User::TIDAK_AKTIF) {
+            return 'Tidak Aktif';
+        }
+
+        return 'Tidak Diketahui';
     }
 
     public function store(CreateRequest $request)
@@ -138,6 +160,7 @@ class UsersController extends Controller
                 'password' => bcrypt($randomPassword), // Enkripsi password acak
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
+                'status' => User::AKTIF,
             ]);
 
             $user->salary()->create([
@@ -233,6 +256,65 @@ class UsersController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
+        }
+    }
+
+       public function updateStatusAkitf($id) {
+        DB::beginTransaction();
+
+        try {
+            // Cek hak akses: hanya OWNER atau ADMIN
+            if (!auth()->user()->hasRole(Role::OWNER) && !auth()->user()->hasRole(Role::ADMIN)) {
+                return MessageDakama::forbidden('Hanya OWNER atau ADMIN yang dapat mengubah status user.');
+            }
+
+            // Cari user berdasarkan ID
+            $user = User::find($id);
+            if (!$user) {
+                return MessageDakama::notFound('User tidak ditemukan.');
+            }
+
+            // Update status menjadi "Tidak Aktif"
+            $user->update([
+                'status' => User::AKTIF
+            ]);
+
+            DB::commit();
+            return MessageDakama::success("Status user {$user->name} berhasil diubah menjadi Aktif.", $user);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error('Gagal mengubah status user: ' . $th->getMessage());
+        }
+    }
+
+    public function updateStatusTidakAkitf($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            // Cek hak akses: hanya OWNER atau ADMIN
+            if (!auth()->user()->hasRole(Role::OWNER) && !auth()->user()->hasRole(Role::ADMIN)) {
+                return MessageDakama::forbidden('Hanya OWNER atau ADMIN yang dapat mengubah status user.');
+            }
+
+            // Cari user berdasarkan ID
+            $user = User::find($id);
+            if (!$user) {
+                return MessageDakama::notFound('User tidak ditemukan.');
+            }
+
+            // Update status menjadi "Tidak Aktif"
+            $user->update([
+                'status' => User::TIDAK_AKTIF
+            ]);
+
+            DB::commit();
+            return MessageDakama::success("Status user {$user->name} berhasil diubah menjadi Tidak Aktif.", $user);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error('Gagal mengubah status user: ' . $th->getMessage());
         }
     }
 
@@ -335,6 +417,7 @@ class UsersController extends Controller
                 'password' => bcrypt($defaultPassword), // Enkripsi password default
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
+                'status' => User::AKTIF,
             ]);
 
             // Buat data salary untuk user

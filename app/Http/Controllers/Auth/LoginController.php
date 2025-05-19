@@ -33,6 +33,14 @@ class LoginController extends Controller
             ], MessageDakama::HTTP_BAD_REQUEST);
         }
 
+         if ((int) $user->status === User::TIDAK_AKTIF) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_FORBIDDEN,
+                'message' => 'Akun Anda tidak aktif. Silakan hubungi administrator.'
+            ], MessageDakama::HTTP_FORBIDDEN);
+        }
+
         try {
             $role = [strtolower($user->role->name)];
             $token = $user->createToken('api', $role)->plainTextToken;

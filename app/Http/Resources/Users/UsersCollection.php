@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Users;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
@@ -22,6 +23,7 @@ class UsersCollection extends ResourceCollection
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role->role_name,
+                'status_users' => $this->statusUsersKubika($user),
                 'divisi' => [
                     'name' => $user->divisi->name ?? null,
                     'kode_divisi' => $user->divisi->kode_divisi ?? null,
@@ -37,5 +39,16 @@ class UsersCollection extends ResourceCollection
         }
 
         return $data;
+    }
+
+    protected function statusUsersKubika($user): string
+    {
+        if ((int) $user->status === User::AKTIF) {
+            return 'Aktif';
+        } elseif ((int) $user->status === User::TIDAK_AKTIF) {
+            return 'Tidak Aktif';
+        }
+
+        return 'Tidak Diketahui';
     }
 }
