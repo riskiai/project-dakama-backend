@@ -12,6 +12,9 @@ use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
+use App\Http\Controllers\Purchase\PurchaseController;
+use App\Http\Controllers\Purchase\PurchaseStatusController;
+use App\Http\Controllers\Purchase\PurchaseCategoryController;
 
 Route::prefix('auth')->group(function () {
     Route::post('login', LoginController::class);
@@ -115,9 +118,25 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/payment-termin/{id}', [ProjectController::class, 'paymentTermin']);
         Route::put('/update-termin/{id}', [ProjectController::class, 'updateTermin']);
         Route::delete('/delete-termin/{id}', [ProjectController::class, 'deleteTermin']);
+    });
 
-     
+    Route::prefix('purchase-category')->group(function () {
+        Route::get('/', [PurchaseCategoryController::class, 'index']);
+        Route::get('/{id}', [PurchaseCategoryController::class, 'show']);
+    });
 
+    // end point puchase status
+    Route::prefix('purchase-status')->group(function () {
+        Route::get('/', [PurchaseStatusController::class, 'index']);
+        Route::get('/{id}', [PurchaseStatusController::class, 'show']);
+    });
+
+    Route::prefix('purchase')->group(function () {
+        Route::get('/', [PurchaseController::class, 'index']);
+        Route::get('/all', [PurchaseController::class, 'indexAll']);
+        Route::get('/counting-purchase', [PurchaseController::class, 'countingPurchase']);
+        Route::get('/show/{id}', [PurchaseController::class, 'show']);
+        Route::get('/create-purchase', [PurchaseController::class, 'createPurchase']);
     });
 
 });
