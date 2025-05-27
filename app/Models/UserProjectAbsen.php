@@ -28,6 +28,7 @@ class UserProjectAbsen extends Model
         'jam_masuk',
         'jam_pulang',
         'keterangan',
+        'duration',
     ];
 
     public function user()

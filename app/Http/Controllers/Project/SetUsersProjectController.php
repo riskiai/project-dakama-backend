@@ -38,7 +38,8 @@ class SetUsersProjectController extends Controller
         return new SetUserProjectAbsenCollection($absensi);
     }
 
-    public function indexAll(Request $request) {
+    public function indexAll(Request $request)
+    {
         $query = UserProjectAbsen::query();
 
         // 🔍 Filtering opsional
@@ -79,6 +80,7 @@ class SetUsersProjectController extends Controller
                     'jam_masuk'  => null,
                     'jam_pulang' => null,
                     'keterangan' => null,
+                    'duration'   => $request->validated('duration', 8),
                 ]);
             }
 
@@ -151,5 +153,4 @@ class SetUsersProjectController extends Controller
             return MessageDakama::error("Gagal menghapus data absen: " . $th->getMessage());
         }
     }
-
 }

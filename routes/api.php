@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TaxController;
@@ -35,20 +36,20 @@ Route::get('cektoken', [UsersController::class, 'cekToken']);
 Route::middleware(['auth:sanctum'])->group(function () {
     // Users
     Route::prefix('user')->group(function () {
-       Route::get('/', [UsersController::class, 'index']);
-       Route::get('all', [UsersController::class, 'usersAll']);
-       Route::get('me', function (Request $request) {
-           // dd($request->user());
-           return $request->user();
-       });
-       Route::get('/{id}', [UsersController::class, 'show']);
-       Route::post('store', [UsersController::class, 'store']);
-       Route::put('update/{id}', [UsersController::class, 'update']);
-       Route::put('update-status-tidak-aktif/{id}', [UsersController::class, 'updateStatusTidakAkitf']);
-       Route::put('update-status-aktif/{id}', [UsersController::class, 'updateStatusAkitf']);
-       Route::put('/reset-password/{id}', [UsersController::class, 'resetPassword']);
-       Route::put('update-password', [UsersController::class, 'updatepassword']);
-       Route::delete('destroy/{id}', [UsersController::class, 'destroy']);
+        Route::get('/', [UsersController::class, 'index']);
+        Route::get('all', [UsersController::class, 'usersAll']);
+        Route::get('me', function (Request $request) {
+            // dd($request->user());
+            return $request->user();
+        });
+        Route::get('/{id}', [UsersController::class, 'show']);
+        Route::post('store', [UsersController::class, 'store']);
+        Route::put('update/{id}', [UsersController::class, 'update']);
+        Route::put('update-status-tidak-aktif/{id}', [UsersController::class, 'updateStatusTidakAkitf']);
+        Route::put('update-status-aktif/{id}', [UsersController::class, 'updateStatusAkitf']);
+        Route::put('/reset-password/{id}', [UsersController::class, 'resetPassword']);
+        Route::put('update-password', [UsersController::class, 'updatepassword']);
+        Route::delete('destroy/{id}', [UsersController::class, 'destroy']);
     });
 
     // Divisi
@@ -78,8 +79,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ContactType
     Route::prefix('contact-type')->group(function () {
-           Route::get('/', [ContactTypeController::class, 'index']);
-           Route::get('/{id}', [ContactTypeController::class, 'show']);
+        Route::get('/', [ContactTypeController::class, 'index']);
+        Route::get('/{id}', [ContactTypeController::class, 'show']);
     });
 
     // Project
@@ -148,4 +149,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/create-purchase', [PurchaseController::class, 'createPurchase']);
     });
 
+    Route::prefix('attendance')->group(function () {
+        Route::get('/index', [AttendanceController::class, 'index']);
+        Route::get('/show-me', [AttendanceController::class, 'showMe']);
+        Route::post('/store', [AttendanceController::class, 'store']);
+
+        Route::prefix('adjustment')->group(function () {
+            Route::get('/index', [AttendanceController::class, 'adjustmentIndex']);
+            Route::post('/store', [AttendanceController::class, 'adjustmentStore']);
+            Route::put('/update/{id}', [AttendanceController::class, 'adjustmentUpdate']);
+            Route::put('/approval', [AttendanceController::class, 'adjustmentApproval']);
+            Route::delete('/destroy/{id}', [AttendanceController::class, 'adjustmentDestroy']);
+        });
+    });
 });
