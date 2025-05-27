@@ -12,6 +12,7 @@ use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
+use App\Http\Controllers\Project\SetUsersProjectController;
 use App\Http\Controllers\Purchase\PurchaseController;
 use App\Http\Controllers\Purchase\PurchaseStatusController;
 use App\Http\Controllers\Purchase\PurchaseCategoryController;
@@ -98,6 +99,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('budget/{id}', [BudgetController::class, 'show']);
         Route::put('budget-edit/{id}', [BudgetController::class, 'update']);
         Route::delete('budget-delete/{id}', [BudgetController::class, 'destroy']);
+
+        // Set Users Dan Project Untuk Data Absen
+        Route::get('setuser-project-absen', [SetUsersProjectController::class, 'index']);
+        Route::get('setuser-project-absen-all', [SetUsersProjectController::class, 'indexAll']);
+        Route::post('setuser-project-absen-create', [SetUsersProjectController::class, 'store']);
+        Route::put('setuser-project-absen-update/{id}', [SetUsersProjectController::class, 'update']);
+        Route::get('setuser-project-absen-show/{id}', [SetUsersProjectController::class, 'show']);
+        Route::delete('setuser-project-absen-delete/{id}', [SetUsersProjectController::class, 'delete']);
 
         // Projects
         Route::get('/', [ProjectController::class, 'index']);

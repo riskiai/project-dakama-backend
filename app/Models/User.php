@@ -66,6 +66,12 @@ class User extends Authenticatable
         return $this->hasOne(UserSalary::class, 'user_id', 'id');
     }
 
+    /* Opsional Relasi */
+    public function absensiProjects()
+    {
+        return $this->hasMany(UserProjectAbsen::class);
+    }
+
      public function hasRole($role)
     {
         if (is_string($role)) {

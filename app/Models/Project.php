@@ -148,4 +148,11 @@ class Project extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
+    /* Opsional Relasi */
+    public function absensiUsers()
+    {
+        return $this->hasMany(UserProjectAbsen::class, 'project_id', 'id');
+    }
+
+
 }
