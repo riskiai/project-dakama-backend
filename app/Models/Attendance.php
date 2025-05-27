@@ -29,6 +29,7 @@ class Attendance extends Model
         'status',
         'image_in',
         'image_out',
+        'is_late'
     ];
 
     public function user()

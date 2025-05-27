@@ -36,6 +36,7 @@ class AttendanceResource extends JsonResource
             'location_long_out' => $this->location_long_out,
             'image_out' => Storage::url($this->image_out),
             'status' => $this->status,
+            'pesent' => $this->is_late ? 'LATE' : 'ON TIME',
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at
         ];
