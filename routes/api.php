@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
+use App\Http\Controllers\OvertimeController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
@@ -161,5 +162,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::put('/approval', [AttendanceController::class, 'adjustmentApproval']);
             Route::delete('/destroy/{id}', [AttendanceController::class, 'adjustmentDestroy']);
         });
+    });
+
+    Route::prefix('overtime')->group(function () {
+        Route::get('/index', [OvertimeController::class, 'index']);
+        Route::post('/store', [OvertimeController::class, 'store']);
+        Route::get('/show/{id}', [OvertimeController::class, 'show']);
+        Route::put('/update/{id}', [OvertimeController::class, 'update']);
+        Route::put('/approval/{id}', [OvertimeController::class, 'approval']);
+        Route::delete('/destroy/{id}', [OvertimeController::class, 'destroy']);
     });
 });
