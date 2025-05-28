@@ -4,7 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;       
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,8 +14,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable , SoftDeletes;
-    
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
     const AKTIF = 1;
     const TIDAK_AKTIF = 2;
 
@@ -27,6 +27,7 @@ class User extends Authenticatable
         'password',
         'token',
         'status',
+        'loan'
     ];
 
     /**
@@ -62,7 +63,8 @@ class User extends Authenticatable
         return $this->belongsTo(Divisi::class);
     }
 
-    public function salary() : HasOne {
+    public function salary(): HasOne
+    {
         return $this->hasOne(UserSalary::class, 'user_id', 'id');
     }
 
@@ -72,7 +74,7 @@ class User extends Authenticatable
         return $this->hasMany(UserProjectAbsen::class);
     }
 
-     public function hasRole($role)
+    public function hasRole($role)
     {
         if (is_string($role)) {
             return $this->role && $this->role->role_name === $role;

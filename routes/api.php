@@ -10,6 +10,9 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\User\UsersController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
+use App\Http\Controllers\LoanController;
+use App\Http\Controllers\MutationController;
+use App\Http\Controllers\OvertimeController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
@@ -161,5 +164,28 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::put('/approval', [AttendanceController::class, 'adjustmentApproval']);
             Route::delete('/destroy/{id}', [AttendanceController::class, 'adjustmentDestroy']);
         });
+    });
+
+    Route::prefix('overtime')->group(function () {
+        Route::get('/index', [OvertimeController::class, 'index']);
+        Route::post('/store', [OvertimeController::class, 'store']);
+        Route::get('/show/{id}', [OvertimeController::class, 'show']);
+        Route::put('/update/{id}', [OvertimeController::class, 'update']);
+        Route::put('/approval/{id}', [OvertimeController::class, 'approval']);
+        Route::delete('/destroy/{id}', [OvertimeController::class, 'destroy']);
+    });
+
+    Route::prefix('loan')->group(function () {
+        Route::get('/index', [LoanController::class, 'index']);
+        Route::post('/store', [LoanController::class, 'store']);
+        Route::get('/show/{id}', [LoanController::class, 'show']);
+        Route::put('/update/{id}', [LoanController::class, 'update']);
+        Route::put('/approval/{id}', [LoanController::class, 'approval']);
+        Route::delete('/destroy/{id}', [LoanController::class, 'destroy']);
+        Route::post('/payment/{id}', [LoanController::class, 'payment']);
+    });
+
+    Route::prefix('mutation')->group(function () {
+        Route::get('loan', [MutationController::class, 'getLoan']);
     });
 });

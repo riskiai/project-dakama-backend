@@ -1,6 +1,7 @@
 <?php
 
-use App\Models\Attendance;
+use App\Models\Project;
+use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -13,15 +14,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('attendance_adjustments', function (Blueprint $table) {
+        Schema::create('overtimes', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(User::class)->references('id')->on('users');
-            $table->foreignIdFor(User::class, 'pic_id')->references('id')->on('users');
-            $table->foreignIdFor(Attendance::class)->references('id')->on('attendances');
-            $table->dateTime('old_start_time');
-            $table->dateTime('old_end_time');
-            $table->dateTime('new_start_time');
-            $table->dateTime('new_end_time');
+            $table->foreignIdFor(Project::class)->references('id')->on('projects');
+            $table->foreignIdFor(Task::class)->references('id')->on('tasks');
+            $table->integer('duration')->default(1);
+            $table->dateTime('request_date');
             $table->string('reason')->default('-');
             $table->enum('status', ['waiting', 'approved', 'rejected', 'cancelled'])->default('waiting');
             $table->timestamps();
@@ -33,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('attendance_adjustments');
+        Schema::dropIfExists('overtimes');
     }
 };

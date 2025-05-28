@@ -16,9 +16,9 @@ return new class extends Migration
     {
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(User::class)->references('id')->on('users')->cascadeOnDelete();
-            $table->foreignIdFor(Project::class)->references('id')->on('projects')->cascadeOnDelete();
-            $table->foreignIdFor(Task::class)->references('id')->on('tasks')->cascadeOnDelete();
+            $table->foreignIdFor(User::class)->references('id')->on('users');
+            $table->foreignIdFor(Project::class)->references('id')->on('projects');
+            $table->foreignIdFor(Task::class)->references('id')->on('tasks');
             $table->integer('duration')->default(9);
             $table->dateTime('start_time')->nullable();
             $table->string('location_in', 100)->nullable();
