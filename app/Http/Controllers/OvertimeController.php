@@ -6,6 +6,7 @@ use App\Facades\MessageDakama;
 use App\Http\Resources\Overtime\OvertimeCollection;
 use App\Http\Resources\Overtime\OvertimeResource;
 use App\Models\Overtime;
+use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,9 +17,15 @@ class OvertimeController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
+
         $query = Overtime::query();
 
         $query->with(['project', 'task', 'user']);
+
+        if ($user->hasRole(Role::KARYAWAN)) {
+            $query->where('user_id', $user->id);
+        }
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $overtimes = $query->paginate($request->per_page);

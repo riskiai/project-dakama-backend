@@ -16,9 +16,9 @@ return new class extends Migration
     {
         Schema::create('overtimes', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(User::class)->references('id')->on('users')->cascadeOnDelete();
-            $table->foreignIdFor(Project::class)->references('id')->on('projects')->cascadeOnDelete();
-            $table->foreignIdFor(Task::class)->references('id')->on('tasks')->cascadeOnDelete();
+            $table->foreignIdFor(User::class)->references('id')->on('users');
+            $table->foreignIdFor(Project::class)->references('id')->on('projects');
+            $table->foreignIdFor(Task::class)->references('id')->on('tasks');
             $table->integer('duration')->default(1);
             $table->dateTime('request_date');
             $table->string('reason')->default('-');
