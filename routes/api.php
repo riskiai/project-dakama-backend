@@ -146,7 +146,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/all', [PurchaseController::class, 'indexAll']);
         Route::get('/counting-purchase', [PurchaseController::class, 'countingPurchase']);
         Route::get('/show/{id}', [PurchaseController::class, 'show']);
-        Route::get('/create-purchase', [PurchaseController::class, 'createPurchase']);
+        Route::post('/create-purchase', [PurchaseController::class, 'createPurchase']);
     });
 
     Route::prefix('attendance')->group(function () {

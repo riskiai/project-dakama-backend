@@ -143,74 +143,66 @@ class PurchaseController extends Controller
 
     }
 
-    public function createPurchase(CreateRequest $request) {
+   public function createPurchase(CreateRequest $request)
+    {
         DB::beginTransaction();
 
         try {
-             // Validasi untuk PPN
-            $ppn = $request->tax_ppn;
-            if (!preg_match('/^\d+(\.\d+)?%?$/', $ppn)) {
-                DB::rollBack();
-                return MessageDakama::error("Format PPN tidak valid. Harap masukkan nilai PPN dalam format persen tanpa menggunakan koma.");
-            }
-
-            // Mendapatkan proyek yang diinginkan
-            $project = null;
-
-            // Jika pembelian adalah operasional, maka tidak perlu mengambil proyek
-            if ($request->purchase_id == Purchase::TYPE_OPERATIONAL) {
-                $project = null; // Set proyek menjadi null untuk pembelian operasional
-            } else {
-                // Jika pembelian adalah event, maka cek proyek yang diinginkan
-                $project = Project::find($request->project_id);
-
-                // Melakukan pengecekan jika proyek tidak ada atau statusnya tidak aktif
-                if (!$project || $project->status != Project::ACTIVE) {
-                    DB::rollBack();
-                    return MessageDakama::error("Proyek tidak tersedia atau tidak aktif.");
-                }
-            }
-
-            $purchaseMax = Purchase::where('purchase_category_id', $request->purchase_category_id)->max('doc_no');
+            /*──────────── 1. Generate doc_no & payload header ────────────*/
+            $purchaseMax      = Purchase::where('purchase_category_id', $request->purchase_category_id)->max('doc_no');
             $purchaseCategory = PurchaseCategory::find($request->purchase_category_id);
 
-            // $company = Company::find($request->client_id);
-            // if ($company->contact_type_id != ContactType::VENDOR) {
-            //     return MessageDakama::warning("this contact is not a vendor type");
-            // }
-
-            $request->merge([
-                'doc_no' => $this->generateDocNo($purchaseMax, $purchaseCategory),
-                'doc_type' => Str::upper($purchaseCategory->name),
+            $headerData = $request->except(['products', 'attachment_file']);
+            $headerData = array_merge($headerData, [
+                'doc_no'             => $this->generateDocNo($purchaseMax, $purchaseCategory),
+                'doc_type'           => Str::upper($purchaseCategory->name),
                 'purchase_status_id' => PurchaseStatus::AWAITING,
-                // 'company_id' => $company->id,
-                'ppn' => $request->tax_ppn,
-                'user_id' => auth()->user()->id
+                'user_id'            => auth()->id(),
+                'sub_total_purchase' => 0,            // placeholder
+                'project_id'         => $request->purchase_id == Purchase::TYPE_OPERATIONAL
+                                            ? null
+                                            : $request->project_id,
             ]);
 
-            // Jika pembelian adalah operasional, set project_id menjadi null
-            if ($request->purchase_id == Purchase::TYPE_OPERATIONAL) {
-                $request->merge([
-                    'project_id' => null,
-                ]);
+            /*──────────── 2. Simpan header ────────────*/
+            $purchase = Purchase::create($headerData);
+
+            /*──────────── 3. Parse & simpan detail produk ────────────*/
+            $detailRows = is_string($request->products)
+                ? json_decode($request->products, true, 512, JSON_THROW_ON_ERROR)
+                : $request->products;
+
+            if (!is_array($detailRows) || empty($detailRows)) {
+                throw new \Exception('Field products tidak valid atau kosong.');
             }
 
-            $purchase = Purchase::create($request->all());
+            $grandTotal = 0;
+            foreach ($detailRows as $row) {
+                // subtotal_harga_product dihitung otomatis di model event
+                $product   = $purchase->productCompanies()->create($row);
+                $grandTotal += $product->subtotal_harga_product;
+            }
 
-            // Periksa apakah ada file yang dilampirkan sebelum melakukan iterasi foreach
+            // update subtotal di header
+            $purchase->update(['sub_total_purchase' => $grandTotal]);
+
+            /*──────────── 4. Simpan lampiran (jika ada) ────────────*/
             if ($request->hasFile('attachment_file')) {
-                foreach ($request->file('attachment_file') as $key => $file) {
-                    $this->saveDocument($purchase, $file, $key + 1);
+                foreach ($request->file('attachment_file') as $idx => $file) {
+                    $this->saveDocument($purchase, $file, $idx + 1);
                 }
             }
 
             DB::commit();
-            return MessageDakama::success("doc no $purchase->doc_no has been created");
-        } catch (\Throwable $th) {
+            return MessageDakama::success("doc no {$purchase->doc_no} has been created");
+        } catch (\Throwable $e) {
             DB::rollBack();
-            return MessageDakama::error($th->getMessage());
+            return MessageDakama::error($e->getMessage());
         }
     }
+
+    /* helper lain (generateDocNo & saveDocument) biarkan seperti yang sudah ada */
+
 
     protected function generateDocNo($maxPurchase, $purchaseCategory)
     {

@@ -52,7 +52,7 @@ class Purchase extends Model
 
      protected $dates = ['created_at', 'updated_at'];
 
-      public function getTotalAttribute()
+     /*  public function getTotalAttribute()
     {
         $total = $this->attributes['sub_total'];
 
@@ -69,7 +69,7 @@ class Purchase extends Model
         }
         
         return round($total);
-    }
+    } */
 
      public function purchaseCategory(): HasOne
     {
