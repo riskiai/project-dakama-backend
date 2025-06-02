@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MutationController;
+use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\OvertimeController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
@@ -156,6 +157,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/index', [AttendanceController::class, 'index']);
         Route::get('/show-me', [AttendanceController::class, 'showMe']);
         Route::post('/store', [AttendanceController::class, 'store']);
+        Route::post('/sync', [AttendanceController::class, 'sync']);
 
         Route::prefix('adjustment')->group(function () {
             Route::get('/index', [AttendanceController::class, 'adjustmentIndex']);
@@ -187,5 +189,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('mutation')->group(function () {
         Route::get('loan', [MutationController::class, 'getLoan']);
+    });
+
+    Route::prefix('operational')->group(function () {
+        Route::get('show', [OperationalController::class, 'show']);
+        Route::post('save', [OperationalController::class, 'save']);
     });
 });
