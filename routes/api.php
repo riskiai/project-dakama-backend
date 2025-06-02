@@ -150,6 +150,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/counting-purchase', [PurchaseController::class, 'countingPurchase']);
         Route::get('/show/{id}', [PurchaseController::class, 'show']);
         Route::post('/create-purchase', [PurchaseController::class, 'createPurchase']);
+        Route::put('/accept/{id}', [PurchaseController::class, 'acceptPurchase']);
+        Route::put('/request/{id}', [PurchaseController::class, 'requestPurchase']);
+        Route::put('/payment/{id}', [PurchaseController::class, 'paymentPurchase']);
+        Route::delete('/delete-purchase/{id}', [PurchaseController::class, 'destroy']);
+        Route::delete('/delete-document/{id}', [PurchaseController::class, 'destroyDocument']);
     });
 
     Route::prefix('attendance')->group(function () {

@@ -9,10 +9,19 @@ class Document extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    const BUKTI_PEMBELIAN  = 1;
+    const BUKTI_PEMBAYARAN = 2;
+
+    protected $fillable = [
+        'doc_no',
+        'file_name',
+        'file_path',
+        'type_file',
+    ];
 
     public function purchase()
     {
-        return $this->hasOne(Purchase::class, 'doc_no', 'doc_no');
+        return $this->belongsTo(Purchase::class, 'doc_no', 'doc_no');
     }
 }
+

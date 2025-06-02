@@ -675,6 +675,9 @@ class ProjectController extends Controller
             $project = Project::findOrFail($id);
 
             // SpbProject::where('project_id', $id)->update(['project_id' => null]);
+
+            \App\Models\Purchase::where('project_id', $project->id)
+            ->update(['project_id' => null]);
     
             // Hapus hubungan many-to-many terlebih dahulu jika ada
             $project->tasks()->detach();  

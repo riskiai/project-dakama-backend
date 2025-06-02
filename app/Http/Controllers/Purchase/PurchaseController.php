@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Purchase;
 
+use Carbon\Carbon;
+use App\Models\Tax;
 use App\Models\Role;
 use App\Models\Company;
 use App\Models\Project;
+use App\Models\Document;
 use App\Models\Purchase;
 use App\Models\ContactType;
 use Illuminate\Support\Str;
@@ -17,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Facades\Filters\Purchase\ByTab;
 use App\Facades\Filters\Purchase\ByTax;
+use Illuminate\Support\Facades\Storage;
 use App\Facades\Filters\Purchase\ByDate;
 use App\Facades\Filters\Purchase\BySearch;
 use App\Facades\Filters\Purchase\ByStatus;
@@ -25,15 +29,21 @@ use App\Facades\Filters\Purchase\ByDoctype;
 use App\Facades\Filters\Purchase\ByDuedate;
 use App\Facades\Filters\Purchase\ByProject;
 use App\Facades\Filters\Purchase\ByUpdated;
+use App\Http\Requests\Purchase\AcceptRequest;
 use App\Http\Requests\Purchase\CreateRequest;
 use App\Facades\Filters\Purchase\ByPurchaseID;
+use App\Http\Requests\Purchase\PaymentRequest;
 use App\Http\Resources\Purchase\PurchaseCollection;
 
 class PurchaseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Purchase::query();
+        $query = Purchase::with([
+            'productCompanies.company',     
+        ]);
+
+        // $query = Purchase::query();
         
         // Tambahkan filter berdasarkan tanggal terkini (komentar saja)
         // $query->whereDate('date', Carbon::today());
@@ -159,9 +169,9 @@ class PurchaseController extends Controller
                 'purchase_status_id' => PurchaseStatus::AWAITING,
                 'user_id'            => auth()->id(),
                 'sub_total_purchase' => 0,            // placeholder
-                'project_id'         => $request->purchase_id == Purchase::TYPE_OPERATIONAL
-                                            ? null
-                                            : $request->project_id,
+                // 'project_id'         => $request->purchase_id == Purchase::TYPE_OPERATIONAL
+                //                             ? null
+                //                             : $request->project_id,
             ]);
 
             /*──────────── 2. Simpan header ────────────*/
@@ -235,11 +245,229 @@ class PurchaseController extends Controller
 
     protected function saveDocument($purchase, $file, $iteration)
     {
-        $document = $file->store(Purchase::ATTACHMENT_FILE);
+        $document = $file->store(Purchase::ATTACHMENT_FILE, 'public');
         return $purchase->documents()->create([
             "doc_no" => $purchase->doc_no,
             "file_name" => $purchase->doc_no . '.' . $iteration,
-            "file_path" => $document
+            "file_path" => $document,
+            "type_file"      => \App\Models\Document::BUKTI_PEMBELIAN,
         ]);
     }
+
+    public function destroy($docNo)
+    {
+        DB::beginTransaction();
+
+        $purchase = Purchase::whereDocNo($docNo)->first();
+        if (!$purchase) {
+            return MessageDakama::notFound('data not found!');
+        }
+
+        try {
+            Purchase::whereDocNo($docNo)->delete();
+
+            DB::commit();
+            return MessageDakama::success("purchase $docNo has been deleted");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
+    }
+
+    public function destroyDocument($id)
+    {
+        DB::beginTransaction();
+
+        $purchase = Document::find($id);
+        if (!$purchase) {
+            return MessageDakama::notFound('data not found!');
+        }
+
+        try {
+            Storage::delete($purchase->file_path);
+            $purchase->delete();
+
+            DB::commit();
+            return MessageDakama::success("document $id delete successfully");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
+    }
+
+     public function acceptPurchase(AcceptRequest $request, string $docNo)
+    {
+        DB::beginTransaction();
+
+        try {
+            /* 1. Cari purchase — 404 jika tak ada */
+            $purchase = Purchase::whereDocNo($docNo)->firstOrFail();
+
+            /* 2. Tolak jika status sudah Paid / Rejected */
+            if (in_array($purchase->purchase_status_id, [PurchaseStatus::PAID, PurchaseStatus::REJECTED], true)) {
+                return MessageDakama::warning('Purchase sudah final dan tidak bisa di-accept.');
+            }
+
+            /* 3. PPh (opsional) */
+            $pphTax = null;
+            if ($request->filled('pph_id')) {
+                $pphTax = Tax::find($request->pph_id);
+
+                if (!$pphTax || strtolower($pphTax->type) !== Tax::TAX_PPH) {
+                    return MessageDakama::warning('Tax yang dipilih bukan tipe PPh.');
+                }
+            }
+
+            /* 4. Tentukan status berdasarkan due_date */
+            $statusId = PurchaseStatus::OPEN;
+            if ($purchase->due_date) {
+                $today   = Carbon::today();
+                $dueDate = Carbon::createFromFormat('Y-m-d', $purchase->due_date);
+
+                $statusId = match (true) {
+                    $today->greaterThan($dueDate)           => PurchaseStatus::OVERDUE,
+                    $today->equalTo($dueDate)               => PurchaseStatus::DUEDATE,
+                    default                                 => PurchaseStatus::OPEN,
+                };
+            }
+
+            /* 5. Data yang akan di-update */
+            $updateData = [
+                'purchase_status_id' => $statusId,
+                'tab'                => Purchase::TAB_VERIFIED,
+            ];
+
+            if ($pphTax) {
+                $updateData['pph'] = $pphTax->id;
+            }
+
+            /* 6. Simpan header */
+            $purchase->update($updateData);
+
+            /* 7. Simpan log */
+            $purchase->logs()->create([
+                'tab'                => $updateData['tab'],
+                'purchase_status_id' => $statusId,
+                'name'               => auth()->user()->name,
+                'note_reject'        => null,
+            ]);
+
+            DB::commit();
+            return MessageDakama::success("Purchase {$docNo} telah di-accept.");
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            DB::rollBack();
+            return MessageDakama::notFound('Data not found!');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return MessageDakama::error($e->getMessage());
+        }
+    }
+
+    public function requestPurchase($docNo)
+    {
+        DB::beginTransaction();
+
+        try {
+            /* 1. Cari purchase */
+            $purchase = Purchase::whereDocNo($docNo)->firstOrFail();
+
+            /* Guard: jika sudah paid atau rejected, tolak */
+            if (in_array($purchase->purchase_status_id, [PurchaseStatus::PAID, PurchaseStatus::REJECTED])) {
+                return MessageDakama::warning('Purchase sudah final dan tidak bisa diajukan pembayaran.');
+            }
+
+            /* 2. Hitung status dari due_date */
+            $statusId = PurchaseStatus::OPEN;
+            if ($purchase->due_date) {
+                $today   = Carbon::today();
+                $dueDate = Carbon::createFromFormat('Y-m-d', $purchase->due_date);
+
+                $statusId = match (true) {
+                    $today->greaterThan($dueDate)           => PurchaseStatus::OVERDUE,
+                    $today->eq($dueDate)                    => PurchaseStatus::DUEDATE,
+                    default                                 => PurchaseStatus::OPEN,
+                };
+            }
+
+            /* 3. Update header */
+            $purchase->update([
+                'purchase_status_id' => $statusId,
+                'tab'                => Purchase::TAB_PAYMENT_REQUEST,
+            ]);
+
+            /* 4. Tulis log */
+            $purchase->logs()->create([
+                'tab'                => Purchase::TAB_PAYMENT_REQUEST,
+                'purchase_status_id' => $statusId,
+                'name'               => auth()->user()->name,
+                'note_reject'        => null,
+            ]);
+
+            DB::commit();
+            return MessageDakama::success("Purchase {$docNo} moved to Payment Request.");
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            DB::rollBack();
+            return MessageDakama::notFound('Data not found!');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
+    }
+
+    public function paymentPurchase(PaymentRequest $request, string $docNo)
+    {
+        DB::beginTransaction();
+
+        try {
+            $purchase = Purchase::whereDocNo($docNo)->firstOrFail();
+
+            /* 1. Tetapkan status dan tab sebagai PAID */
+            $statusId = PurchaseStatus::PAID;
+            $tabId    = Purchase::TAB_PAID;
+
+            /* 2. Update purchase */
+            $purchase->update([
+                'purchase_status_id'            => $statusId,
+                'tab'                           => $tabId,
+                'tanggal_pembayaran_purchase'   => $request->tanggal_pembayaran_purchase,
+            ]);
+
+            /* 3. Buat log status pembayaran */
+            $purchase->logs()->create([
+                'tab'                => $tabId,
+                'purchase_status_id' => $statusId,
+                'name'               => auth()->user()->name,
+                'note_reject'        => null,
+            ]);
+
+            /* 4. Upload file bukti pembayaran (jika ada) */
+            if ($request->hasFile('attachment_file')) {
+                foreach ($request->file('attachment_file') as $idx => $file) {
+                    $this->saveDocumentPembayaran($purchase, $file, $idx + 1);
+                }
+            }
+
+            DB::commit();
+            return MessageDakama::success("Purchase {$docNo} telah dibayar.");
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            DB::rollBack();
+            return MessageDakama::notFound('Data not found!');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return MessageDakama::error($e->getMessage());
+        }
+    }
+
+    protected function saveDocumentPembayaran($purchase, $file, $iteration)
+    {
+        $path = $file->store(Purchase::ATTACHMENT_FILE, 'public');
+
+        return $purchase->documents()->create([
+            'doc_no'     => $purchase->doc_no,
+            'file_name'  => $purchase->doc_no . '.PAY.' . $iteration,
+            'file_path'  => $path,
+            'type_file'  => \App\Models\Document::BUKTI_PEMBAYARAN, // 2
+        ]);
+    }
+
 }

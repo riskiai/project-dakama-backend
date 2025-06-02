@@ -10,15 +10,13 @@ class PurchaseStatus extends Model
     use HasFactory;
 
     const AWAITING = 1;
-    const VERIFIED = 2;
-    const OPEN = 3;
-    const OVERDUE = 4;
-    const DUEDATE = 5;
-    const REJECTED = 6;
-    const PAID = 7;
+    const OPEN = 2;
+    const OVERDUE = 3;
+    const DUEDATE = 4;
+    const REJECTED = 5;
+    const PAID = 6;
 
     const TEXT_AWAITING = "Awaiting";
-    const TEXT_VERIFIED = "Verified";
     const TEXT_OPEN = "Open";
     const TEXT_OVERDUE = "Over Due";
     const TEXT_DUEDATE = "Due Date";

@@ -27,12 +27,15 @@ class CreateRequest extends FormRequest
             'description'          => 'nullable|string',
             'remarks'              => 'nullable|string|max:500',
 
+            'project_id' => 'required|exists:projects,id',
+
             // ── array produk ──
             'products'                     => 'required|array|min:1',
             'products.*.company_id'        => 'required|exists:companies,id',
             'products.*.product_name'      => 'required|string|max:255',
             'products.*.harga'             => 'required|numeric|min:0',
             'products.*.stok'              => 'required|integer|min:1',
+            'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
         ];
 
         if ($this->hasFile('attachment_file')) {
@@ -41,9 +44,9 @@ class CreateRequest extends FormRequest
         }
 
         // Hanya untuk Event
-        if ($this->purchase_id == 1) {
-            $rules['project_id'] = 'required|exists:projects,id';
-        }
+        // if ($this->purchase_id == 1) {
+        //     $rules['project_id'] = 'required|exists:projects,id';
+        // }
 
         return $rules;
     }

@@ -12,9 +12,9 @@ class Purchase extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $primaryKey = 'doc_no'; // Set doc_no as the primary key
-    public $incrementing = false; // Indicate that the primary key is not auto-incrementing
-    protected $keyType = 'string'; // Indicate that the primary key is of string type
+    protected $primaryKey = 'doc_no'; 
+    public $incrementing = false; 
+    protected $keyType = 'string'; 
 
     const ATTACHMENT_FILE = 'attachment/purchase';
 
@@ -22,6 +22,13 @@ class Purchase extends Model
     const TAB_VERIFIED = 2;
     const TAB_PAYMENT_REQUEST = 3;
     const TAB_PAID = 4;
+
+    public const TAB_LABELS = [
+        self::TAB_SUBMIT          => 'Submit',
+        self::TAB_VERIFIED        => 'Verified',
+        self::TAB_PAYMENT_REQUEST => 'Payment Request',
+        self::TAB_PAID            => 'Paid',
+    ];
 
     const TEXT_EVENT = "Event Purchase";
     const TEXT_OPERATIONAL = "Operational Purchase";
