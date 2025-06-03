@@ -2,27 +2,74 @@
 
 namespace App\Http\Requests\Purchase;
 
+use App\Facades\MessageDakama;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class UpdateRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
-        return [
-            //
+        $rules = [
+            'purchase_id'          => 'required|in:1,2',
+            'purchase_category_id' => 'required|exists:purchase_category,id',
+            'date'                 => 'required|date',
+            'due_date'             => 'required|date|after_or_equal:date',
+
+            'description'          => 'nullable|string',
+            'remarks'              => 'nullable|string|max:500',
+
+            'project_id' => 'required|exists:projects,id',
+
+            // ── array produk ──
+            'products'                     => 'required|array|min:1',
+            'products.*.company_id'        => 'required|exists:companies,id',
+            'products.*.product_name'      => 'required|string|max:255',
+            'products.*.harga'             => 'nullable|numeric|min:0',
+            'products.*.stok'              => 'nullable|integer|min:1',
+            'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
         ];
+
+        if ($this->hasFile('attachment_file')) {
+            $rules['attachment_file']      = 'array';
+            $rules['attachment_file.*']    = 'nullable|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072';
+        }
+
+        // Hanya untuk Event
+        // if ($this->purchase_id == 1) {
+        //     $rules['project_id'] = 'required|exists:projects,id';
+        // }
+
+        return $rules;
+    }
+
+
+    public function attributes()
+    {
+        return [
+            'purchase_id' => 'purchase type',
+            'purchase_category_id' => 'category purchase',
+            'client_id' => 'client',
+            'project_id' => 'project',
+        ];
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        $response = new JsonResponse([
+            'status' => MessageDakama::WARNING,
+            'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+            'message' => $validator->errors()
+        ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+
+        throw new ValidationException($validator, $response);
     }
 }

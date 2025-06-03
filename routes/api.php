@@ -146,13 +146,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('purchase')->group(function () {
         Route::get('/', [PurchaseController::class, 'index']);
+        Route::get('/get-product-purchase', [PurchaseController::class, 'getDataProductPurchase']);
         Route::get('/all', [PurchaseController::class, 'indexAll']);
         Route::get('/counting-purchase', [PurchaseController::class, 'countingPurchase']);
-        Route::get('/show/{id}', [PurchaseController::class, 'show']);
+        Route::get('/{id}', [PurchaseController::class, 'show']);
         Route::post('/create-purchase', [PurchaseController::class, 'createPurchase']);
+        Route::put('/update-purchase/{id}', [PurchaseController::class, 'updatePurchase']);
+        Route::put('/reject/{id}', [PurchaseController::class, 'rejectPurchase']);
+        Route::put('/undo/{id}', [PurchaseController::class, 'undoPurchase']);
+        Route::put('/activate/{id}', [PurchaseController::class, 'activatePurchase']);
         Route::put('/accept/{id}', [PurchaseController::class, 'acceptPurchase']);
         Route::put('/request/{id}', [PurchaseController::class, 'requestPurchase']);
         Route::put('/payment/{id}', [PurchaseController::class, 'paymentPurchase']);
+        Route::put('/update-payment/{id}', [PurchaseController::class, 'updatePaymentPurchase']);
         Route::delete('/delete-purchase/{id}', [PurchaseController::class, 'destroy']);
         Route::delete('/delete-document/{id}', [PurchaseController::class, 'destroyDocument']);
     });

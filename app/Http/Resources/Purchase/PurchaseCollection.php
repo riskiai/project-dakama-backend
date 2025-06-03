@@ -23,6 +23,23 @@ class PurchaseCollection extends ResourceCollection
              $tabId = $this->getTabLabel($purchase);
              $subTotal   = (float) $purchase->sub_total_purchase;
 
+              $rejectLog = $purchase->logs
+                ->whereNotNull('note_reject')          // hanya log yg ada catatan reject
+                ->sortByDesc('created_at')             // terbaru dulu
+                ->first();
+
+                $notification = null;
+
+                if (
+                    $purchase->purchase_status_id == PurchaseStatus::REJECTED &&     // status sekarang
+                    ($rejectLog = $purchase->logs
+                        ->whereNotNull('note_reject')
+                        ->sortByDesc('created_at')
+                        ->first())
+                ) {
+                    $notification = "{$purchase->doc_no} ditolak oleh {$rejectLog->name}";
+                }
+
             /* ===== hitung PPH ===== */
             $pphRatePercent = 0;
             $pphAmount      = 0;
@@ -77,6 +94,7 @@ class PurchaseCollection extends ResourceCollection
                     ->values()
                     ->toArray(), 
                 */
+                'rejected_notification' => $notification, 
                 /* ---------- LOG TERBARU ---------- */
                 'log_purchase' => (function () use ($purchase) {
                     $log = $purchase->logs->sortByDesc('created_at')->first();   // ambil satu log terbaru
@@ -105,8 +123,8 @@ class PurchaseCollection extends ResourceCollection
                 "remarks" => $purchase->remarks,
                 // "file_bukti_pembelian_product_purchases" => $this->getDocument($purchase),
                 'file_bukti_pembelian_product_purchases' => $this->getDocument($purchase),
-                "date" => $purchase->date,
-                "due_date" => $purchase->due_date,
+                "date_start_create_purchase" => $purchase->date,
+                "due_date_end_purchase" => $purchase->due_date,
                 "project" => $purchase->project
                     ? [
                         "id"   => $purchase->project->id,
@@ -114,7 +132,7 @@ class PurchaseCollection extends ResourceCollection
                       ]
                     : null,
 
-                "products" => $purchase->productCompanies->map(function ($prod) {
+                 "products" => $purchase->productCompanies->map(function ($prod) {
 
                     /* hitung dasar (harga × stok) */
                     $base  = $prod->harga * $prod->stok;
@@ -182,38 +200,42 @@ class PurchaseCollection extends ResourceCollection
 
     protected function calculateStatusId($purchase, $log)
     {
-        // Jika ada status manual (misal Paid / Rejected), pakai itu
-        if (in_array($log->purchase_status_id, [PurchaseStatus::PAID, PurchaseStatus::REJECTED])) {
+        /* 1) Jika log menyimpan status eksplisit (Paid / Rejected / Awaiting dll.) */
+        if ($log && $log->purchase_status_id) {
             return $log->purchase_status_id;
         }
 
-        // Jika belum due date
-        $dueDate = $purchase->due_date ? Carbon::parse($purchase->due_date) : null;
-        $now = Carbon::now();
-
-        if (!$dueDate) return PurchaseStatus::OPEN;
-
-        if ($now->gt($dueDate)) {
-            return PurchaseStatus::OVERDUE;
+        /* 2) Pada tab Submit gunakan status di header (Awaiting / Rejected) */
+        if ($purchase->tab == Purchase::TAB_SUBMIT) {
+            return $purchase->purchase_status_id;
         }
 
-        if ($now->toDateString() === $dueDate->toDateString()) {
-            return PurchaseStatus::DUEDATE;
-        }
+        /* 3) Pada tab Verified / Payment-Request hitung OPEN | DUEDATE | OVERDUE */
+        $due = $purchase->due_date ? Carbon::parse($purchase->due_date) : null;
+        $now = Carbon::today();
+
+        if (!$due)                    return PurchaseStatus::OPEN;
+        if ($now->gt($due))           return PurchaseStatus::OVERDUE;
+        if ($now->eq($due))           return PurchaseStatus::DUEDATE;
 
         return PurchaseStatus::OPEN;
     }
 
+    /* ------------------------------------------------------------------
+    *  HELPER – ubah ID → teks
+    * ------------------------------------------------------------------ */
     protected function calculateStatusText($purchase, $log)
     {
         return match ($this->calculateStatusId($purchase, $log)) {
-            PurchaseStatus::PAID     => PurchaseStatus::TEXT_PAID,
-            PurchaseStatus::REJECTED => PurchaseStatus::TEXT_REJECTED,
-            PurchaseStatus::OVERDUE  => PurchaseStatus::TEXT_OVERDUE,
-            PurchaseStatus::DUEDATE  => PurchaseStatus::TEXT_DUEDATE,
-            default                  => PurchaseStatus::TEXT_OPEN,
+            PurchaseStatus::PAID      => PurchaseStatus::TEXT_PAID,
+            PurchaseStatus::REJECTED  => PurchaseStatus::TEXT_REJECTED,
+            PurchaseStatus::AWAITING  => PurchaseStatus::TEXT_AWAITING,   // ← tambahkan
+            PurchaseStatus::OVERDUE   => PurchaseStatus::TEXT_OVERDUE,
+            PurchaseStatus::DUEDATE   => PurchaseStatus::TEXT_DUEDATE,
+            default                   => PurchaseStatus::TEXT_OPEN,
         };
     }
+
 
     protected function getDocumentPembayaran($purchase)
     {
@@ -288,8 +310,10 @@ class PurchaseCollection extends ResourceCollection
             ];
 
             if ($purchase->purchase_status_id == PurchaseStatus::REJECTED) {
-                $data["note"] = $purchase->reject_note;
+                $data['name'] = PurchaseStatus::TEXT_REJECTED; // ← override label
+                $data['note'] = $purchase->reject_note;
             }
+
         }
 
         if ($purchase->tab == Purchase::TAB_PAID) {
@@ -329,37 +353,5 @@ class PurchaseCollection extends ResourceCollection
 
         return $data;
     }
-
-    /* 
-    protected function getPpn($purchase)
-    {
-        if (is_numeric($purchase->ppn)) {
-            return ($purchase->sub_total * $purchase->ppn) / 100;
-        } else {
-            return 0; // Atau nilai default lainnya jika ppn bukan numerik
-        }
-    }
-
-    protected function getPph($purchase)
-     {
-            if (is_numeric($purchase->pph)) {
-                // Hitung hasil PPH 
-                $pphResult = round((($purchase->sub_total) * $purchase->taxPph->percent) / 100);
-
-                // Ubah nilai pph_hasil menjadi nilai yang dibulatkan
-                return [
-                    "pph_type" => $purchase->taxPph->name,
-                    "pph_rate" => $purchase->taxPph->percent,
-                    "pph_hasil" => $pphResult
-                ];
-            } else {
-                return [
-                    "pph_type" => "", 
-                    "pph_rate" => 0,
-                    "pph_hasil" => 0
-                ];
-            }
-        } 
-    */
 
 }

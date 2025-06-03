@@ -103,6 +103,12 @@ class Purchase extends Model
         return $this->hasOne(Tax::class, 'id', 'ppn');
     }
 
+    public function taxPph(): HasOne
+    {
+        // kolom pph di tabel purchases menyimpan ID tax
+        return $this->hasOne(Tax::class, 'id', 'pph');
+    }
+
     public function documents()
     {
         return $this->hasMany(Document::class, 'doc_no', 'doc_no');

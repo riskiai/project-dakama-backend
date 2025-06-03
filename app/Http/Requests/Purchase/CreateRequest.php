@@ -30,13 +30,23 @@ class CreateRequest extends FormRequest
             'project_id' => 'required|exists:projects,id',
 
             // ── array produk ──
-            'products'                     => 'required|array|min:1',
-            'products.*.company_id'        => 'required|exists:companies,id',
-            'products.*.product_name'      => 'required|string|max:255',
-            'products.*.harga'             => 'required|numeric|min:0',
-            'products.*.stok'              => 'required|integer|min:1',
-            'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
+            // 'products'                     => 'required|array|min:1',
+            // 'products.*.company_id'        => 'required|exists:companies,id',
+            // 'products.*.product_name'      => 'required|string|max:255',
+            // 'products.*.harga'             => 'required|numeric|min:0',
+            // 'products.*.stok'              => 'required|integer|min:1',
+            // 'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
         ];
+
+        $rules['products']                     = 'required_without:products_id|array|min:1';
+        $rules['products.*.company_id']        = 'required_without:products_id|exists:companies,id';
+        $rules['products.*.product_name']      = 'required_without:products_id|string|max:255';
+        $rules['products.*.harga']             = 'required_without:products_id|numeric|min:0';
+        $rules['products.*.stok']              = 'required_without:products_id|integer|min:1';
+        $rules['products.*.ppn']               = 'nullable|numeric|min:0|max:100';
+
+        $rules['products_id']                  = 'required_without:products|array|min:1';
+        $rules['products_id.*']                = 'exists:purchase_products_companies,id';
 
         if ($this->hasFile('attachment_file')) {
             $rules['attachment_file']      = 'array';
