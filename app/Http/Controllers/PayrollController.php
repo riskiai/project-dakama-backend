@@ -3,52 +3,64 @@
 namespace App\Http\Controllers;
 
 use App\Facades\MessageDakama;
+use App\Http\Resources\PayrollResource;
 use App\Models\Attendance;
 use App\Models\Overtime;
 use App\Models\Payroll;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 // Reference : OnvertimeController, AttendanceController, LoanController
 class PayrollController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // query to payroll table
-        // filter if user access role is 'karyawan', data will be filtered by user_id. but if user access role is not 'karyawan', data show all
+        $user = Auth::user();
 
-        // check if paginate true, format response is paginate but if paginate false, format response is collection/get
+        $query = Payroll::query();
 
-        // return new PayrollResource::collection($payrolls);
+        $query->with(['pic', 'user']);
+
+        if ($user->hasRole(Role::KARYAWAN)) {
+            $query->where('user_id', $user->id);
+        }
+
+        if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
+            $payrolls = $query->paginate($request->per_page);
+        } else {
+            $payrolls = $query->get();
+        }
+
+        return PayrollResource::collection($payrolls);
     }
 
     public function store(Request $request)
     {
-
-        // DB::beginTransaction();
+        DB::beginTransaction();
 
         $user = Auth::user();
 
-        // $validator = Validator::make($request->all(), [
-        //     'user_id'       => 'required|exists:users,id',
-        //     'total_loan'    => 'required|integer',
-        //     'start_date'    => 'required|date',
-        //     'end_date'      => 'required|date',
-        //     'notes'         => 'nullable|string'
-        //     // 'is_all_loan'   => 'required|date',
-        //     // 'loan'          => 'required|date',
-        //     // 'total_attendance'      => 'required|integer',
-        //     // 'pic_id'                => 'required|exists:users,id',
-        // ]);
+        $validator = Validator::make($request->all(), [
+            'user_id'       => 'required|exists:users,id',
+            'start_date'    => 'required|date',
+            'end_date'      => 'required|date',
+            'notes'         => 'nullable|string',
+            'is_all_loan'   => 'required|boolean',
+            'loan'          => 'required_if:is_all_loan,false|nullable|integer',
+            'notes'         => 'max:255'
+        ]);
 
-        // if ($validator->fails()) {
-        //     return MessageDakama::render([
-        //         'status' => MessageDakama::WARNING,
-        //         'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
-        //         'message' => $validator->errors()
-        //     ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
-        // }
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         if ($user->hasRole(Role::KARYAWAN)) {
             return MessageDakama::warning('You are not allowed to process payrolls');
@@ -56,47 +68,69 @@ class PayrollController extends Controller
 
         $start = $request->start_date;
         $end = $request->end_date;
+        $userTarget = User::find($request->user_id);
 
-        $Attendance = Attendance::where('user_id', $user->id)->whereBetween('start_time', [$start, $end])->get();
+        $attendCount = Attendance::selectRaw("count(id) as total_working_day, sum(daily_salary + makan + transport + bonus_ontime) as total_salary, sum(late_cut) as total_late_cut")
+        ->where('is_settled', 0)
+        ->whereBetween('start_time', [$start, $end])
+        ->first();
+        
+        $overTimeCount = Overtime::selectRaw("sum(duration) as total_overtime_hour, sum(salary_overtime) as total_salary_overtime")
+        ->whereBetween('request_date', [$start, $end])
+        ->where('status', Overtime::STATUS_APPROVED)
+        ->first();
 
-        $overTime = Overtime::where('user_id', $user->id)
-            ->whereBetween('created_at', [$start, $end])
-            ->orWhereBetween('request_date', [$start, $end])->get();
+        $totalWorkingDay = $attendCount->total_working_day;
+        $totalSalaryWorking = $attendCount->total_salary;
+        $totalLateCut = $attendCount->total_late_cut;
+        $totalSalaryOvertime = $overTimeCount->total_salary_overtime;
+        $totalLoan = 0;
 
-        dd($Attendance, $overTime);
+        if ($request->is_all_loan == true) {
+            $totalLoan = $userTarget->loan;
+        } else {
+            $totalLoan = $request->loan;
+        }
 
+        if ($totalLoan > $userTarget->loan) {
+            return  MessageDakama::warning("total loan exceeds user loan balance");
+        }
 
-        // validation : user_id, start_date, end_date, loan, is_all_loan (boolean), notes (opsional)
+        if ($totalLoan < 0) {
+            return MessageDakama::warning("total loan cannot under zero");
+        }
 
-        // check user not 'karyawan' role
+        try {
+            Payroll::create([
+                "user_id" => $userTarget->id,
+                "pic_id" => $user->id,
+                "total_attendance" => $totalWorkingDay,
+                "total_daily_salary" => $totalSalaryWorking,
+                "total_overtime" => $totalSalaryOvertime,
+                "total_late_cut" => $totalLateCut,
+                "total_loan" => $totalLoan,
+                "datetime" => "{$start}, {$end}",
+                "notes" => $request->notes,
+            ]);
 
-        // query to attendance table by user_id, start_date, end_date of start_time
-
-        // query to overtime table by user_id, start_date, end_date
-
-        // calculate total working working day
-        // calculate total salary working day
-        // calculate total late cut
-        // calculate total salary overtime
-
-        // check the loan user table column to see if the nominal amount matches the amount recorded or does not exceed the amount recorded.
-        // calculate the total amount of loan, if is_all_loan is true, then the total amount of loan is the total amount of loan recorded in the users loan table. but if is_all_loan is false, then the total loan amount is the loan amount that has been input.
-
-        // create payroll
+            DB::commit();
+            return MessageDakama::success("Payroll successfully created");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
     }
 
     public function show($id)
     {
-        // query to payroll table by id
-        // check if not exists return 404
+        $payroll = Payroll::find($id);
+        if (!$payroll) {
+            return MessageDakama::notFound("Payroll not found");
+        }
 
-        // return new PayrollResource($payroll);
-    }
+        $payroll->load(['pic', 'user']);
 
-    public function update(Request $request, $id)
-    {
-        // update allow update if status is 'waiting'
-        // update action same with create process
+        return new PayrollResource($payroll);
     }
 
     public function approval(Request $request, $id)

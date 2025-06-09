@@ -163,7 +163,7 @@ class OvertimeController extends Controller
         }
 
         if (!$overtime->user->salary) {
-            return MessageDakama::warning("User not registered salary!");
+            return MessageDakama::warning("User not registered of a salary!");
         }
 
         if (in_array($overtime->status, [Overtime::STATUS_APPROVED, Overtime::STATUS_REJECTED, Overtime::STATUS_CANCELLED])) {

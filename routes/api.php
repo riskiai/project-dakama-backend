@@ -14,6 +14,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MutationController;
 use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\OvertimeController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
@@ -194,5 +195,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('operational')->group(function () {
         Route::get('show', [OperationalController::class, 'show']);
         Route::post('save', [OperationalController::class, 'save']);
+    });
+
+    Route::prefix('payroll')->group(function () {
+        Route::get('/index', [PayrollController::class, 'index']);
+        Route::post('/store', [PayrollController::class, 'store']);
+        Route::get('/show/{id}', [PayrollController::class, 'show']);
+        Route::put('/approval/{id}', [PayrollController::class, 'approval']);
+        Route::delete('/destroy/{id}', [PayrollController::class, 'destroy']);
     });
 });
