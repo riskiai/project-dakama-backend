@@ -7,6 +7,7 @@ use App\Http\Resources\Overtime\OvertimeCollection;
 use App\Http\Resources\Overtime\OvertimeResource;
 use App\Models\Overtime;
 use App\Models\Role;
+use App\Models\UserProjectAbsen;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -144,7 +145,7 @@ class OvertimeController extends Controller
     {
         DB::beginTransaction();
 
-        $overtime = Overtime::find($id);
+        $overtime = Overtime::with(['user.salary'])->find($id);
         if (!$overtime) {
             return MessageDakama::notFound('Overtime not found');
         }
@@ -161,11 +162,25 @@ class OvertimeController extends Controller
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        try {
-            $overtime->update([
-                'status' => $request->status
-            ]);
+        if (!$overtime->user->salary) {
+            return MessageDakama::warning("User not registered salary!");
+        }
 
+        if (in_array($overtime->status, [Overtime::STATUS_APPROVED, Overtime::STATUS_REJECTED, Overtime::STATUS_CANCELLED])) {
+            return MessageDakama::warning("Overtime has been {$overtime->status}, can't be processed!");
+        }
+
+        try {
+            $formData = [
+                'status' => $request->status
+            ];
+            
+            if ($request->status == Overtime::STATUS_APPROVED) {
+                $formData['salary_overtime'] = ($overtime->user->salary->hourly_overtime_salary * $overtime->duration);
+            }
+            
+            $overtime->update($formData);
+            
             DB::commit();
             return MessageDakama::success("Overtime successfully {$request->status}");
         } catch (\Throwable $th) {

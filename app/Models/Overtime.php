@@ -19,6 +19,7 @@ class Overtime extends Model
         'request_date',
         'reason',
         'status',
+        'salary_overtime',
     ];
 
     public function user()
