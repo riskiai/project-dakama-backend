@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Facades\MessageDakama;
 use App\Http\Resources\PayrollResource;
 use App\Models\Attendance;
+use App\Models\MutationLoan;
 use App\Models\Overtime;
 use App\Models\Payroll;
 use App\Models\Role;
@@ -27,6 +28,22 @@ class PayrollController extends Controller
 
         if ($user->hasRole(Role::KARYAWAN)) {
             $query->where('user_id', $user->id);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        if ($request->filled('pic_id')) {
+            $query->where('pic_id', $request->pic_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('approved_by')) {
+            $query->where('approved_by', $request->approved_by);
         }
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
@@ -71,19 +88,19 @@ class PayrollController extends Controller
         $userTarget = User::find($request->user_id);
 
         $attendCount = Attendance::selectRaw("count(id) as total_working_day, sum(daily_salary + makan + transport + bonus_ontime) as total_salary, sum(late_cut) as total_late_cut")
-        ->where('is_settled', 0)
-        ->whereBetween('start_time', [$start, $end])
-        ->first();
-        
-        $overTimeCount = Overtime::selectRaw("sum(duration) as total_overtime_hour, sum(salary_overtime) as total_salary_overtime")
-        ->whereBetween('request_date', [$start, $end])
-        ->where('status', Overtime::STATUS_APPROVED)
-        ->first();
+            ->where('is_settled', 0)
+            ->whereBetween('start_time', [$start, $end])
+            ->first();
 
-        $totalWorkingDay = $attendCount->total_working_day;
-        $totalSalaryWorking = $attendCount->total_salary;
-        $totalLateCut = $attendCount->total_late_cut;
-        $totalSalaryOvertime = $overTimeCount->total_salary_overtime;
+        $overTimeCount = Overtime::selectRaw("sum(duration) as total_overtime_hour, sum(salary_overtime) as total_salary_overtime")
+            ->whereBetween('request_date', [$start, $end])
+            ->where('status', Overtime::STATUS_APPROVED)
+            ->first();
+
+        $totalWorkingDay = $attendCount->total_working_day ?? 0;
+        $totalSalaryWorking = $attendCount->total_salary ?? 0;
+        $totalLateCut = $attendCount->total_late_cut ?? 0;
+        $totalSalaryOvertime = $overTimeCount->total_salary_overtime ?? 0;
         $totalLoan = 0;
 
         if ($request->is_all_loan == true) {
@@ -135,38 +152,89 @@ class PayrollController extends Controller
 
     public function approval(Request $request, $id)
     {
-        // query to payroll table by id
-        // check if not exists return 404
+        DB::beginTransaction();
 
-        // validation : status = 'approved|rejected|cancelled'
+        $user = Auth::user();
 
-        // check status is approved or other, if status is 'approved', continue the update process below (#1 and #2). but if status is not 'approved', update status payroll to status request (#1 only)
+        $payroll = Payroll::with(['pic', 'user'])->find($id);
+        if (!$payroll) {
+            return MessageDakama::notFound("Payroll not found");
+        }
 
-        // #1
-        // update status to requested and set approved at`
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:approved,rejected,cancelled'
+        ]);
 
-        // #2
-        // update attendance is_settled to true by user_id and date between start_date and end_date
-        // update the loan user table column. reduce the existing data with the data from the total loan
-        // create mutation loan table
-        /** example mutation :
-         * MutationLoan::create([
-         * 'user_id' => $payroll->user_id,
-         * 'decrease' => $payroll->total_loan,
-         * 'latest' => $payroll->user->loan,
-         * 'total' => $payroll->user->loan - $payroll->total_loan,
-         * 'description' => "Loan {$payroll->total_loan} approved by {$pic->name}",
-         * 'created_by' => $payroll->user_id
-         * ]);
-         *
-         * $payroll->user()->update([
-         * 'loan' => $payroll->user->loan - $payroll->total_loan
-         * ]);
-         */
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($user->hasRole(Role::KARYAWAN)) {
+            return MessageDakama::warning('You are not allowed to process payrolls');
+        }
+
+        if ($payroll->status == Payroll::STATUS_APPROVED) {
+            return MessageDakama::warning("Payroll has been approved, can't be processed!");
+        }
+
+        $formData = [
+            "status" => $request->status
+        ];
+
+        try {
+            if ($request->status == Payroll::STATUS_APPROVED) {
+                $formData['approved_at'] = now();
+                $formData['approved_by'] = $user->id;
+
+                $payroll->mutations()->create([
+                    'user_id' => $payroll->user_id,
+                    'decrease' => $payroll->total_loan,
+                    'latest' => $payroll->user->loan,
+                    'total' => $payroll->user->loan - $payroll->total_loan,
+                    'description' => "Loan {$payroll->total_loan} approved by {$user->name}",
+                    'created_by' => $payroll->user_id
+                ]);
+
+                $payroll->user()->update([
+                    'loan' => $payroll->user->loan - $payroll->total_loan
+                ]);
+            }
+
+            $payroll->update($formData);
+
+            DB::commit();
+            return MessageDakama::success("Payroll successfully processed");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
     }
 
     public function destroy($id)
     {
-        // delete before status approval is approved
+        DB::beginTransaction();
+
+        $payroll = Payroll::find($id);
+        if (!$payroll) {
+            return MessageDakama::notFound('Payroll not found');
+        }
+
+        if ($payroll->status == Payroll::STATUS_APPROVED) {
+            return MessageDakama::warning("Payroll has been approved, can't delete!");
+        }
+
+        try {
+            $payroll->delete();
+
+            DB::commit();
+            return MessageDakama::success("Payroll successfully deleted");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error($th->getMessage());
+        }
     }
 }

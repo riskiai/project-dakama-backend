@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payroll extends Model
 {
+    const STATUS_WAITING = 'waiting';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         "user_id",
         "pic_id", // from user created
@@ -18,13 +23,26 @@ class Payroll extends Model
         "notes", // opsional
         "status",
         "approved_at",
+        "approved_by"
     ];
 
-    public function pic() {
+    public function pic()
+    {
         return $this->belongsTo(User::class, 'pic_id');
     }
 
-    public function user() {
+    public function user()
+    {
         return $this->belongsTo(User::class);
+    }
+
+    public function approved()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function mutations()
+    {
+        return $this->morphMany(MutationLoan::class, 'mutable');
     }
 }
