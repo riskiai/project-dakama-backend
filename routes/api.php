@@ -12,7 +12,9 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MutationController;
+use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\OvertimeController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
@@ -167,6 +169,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/index', [AttendanceController::class, 'index']);
         Route::get('/show-me', [AttendanceController::class, 'showMe']);
         Route::post('/store', [AttendanceController::class, 'store']);
+        Route::post('/sync', [AttendanceController::class, 'sync']);
 
         Route::prefix('adjustment')->group(function () {
             Route::get('/index', [AttendanceController::class, 'adjustmentIndex']);
@@ -198,5 +201,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('mutation')->group(function () {
         Route::get('loan', [MutationController::class, 'getLoan']);
+    });
+
+    Route::prefix('operational')->group(function () {
+        Route::get('show', [OperationalController::class, 'show']);
+        Route::post('save', [OperationalController::class, 'save']);
+    });
+
+    Route::prefix('payroll')->group(function () {
+        Route::get('/index', [PayrollController::class, 'index']);
+        Route::post('/store', [PayrollController::class, 'store']);
+        Route::get('/show/{id}', [PayrollController::class, 'show']);
+        Route::put('/approval/{id}', [PayrollController::class, 'approval']);
+        Route::delete('/destroy/{id}', [PayrollController::class, 'destroy']);
     });
 });

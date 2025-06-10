@@ -35,10 +35,23 @@ class AttendanceResource extends JsonResource
             'location_lat_out' => $this->location_lat_out,
             'location_long_out' => $this->location_long_out,
             'image_out' => Storage::url($this->image_out),
-            'status' => $this->status,
-            'pesent' => $this->is_late ? 'LATE' : 'ON TIME',
+            'status' => str()->of($this->status)->upper(),
+            'pesent' => $this->isPresent($this),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at
         ];
+    }
+
+    protected function isPresent($attendance)
+    {
+        if ($attendance->is_late) {
+            return "LATE";
+        }
+
+        if ($attendance->bonus_ontime > 0) {
+            return "ON TIME";
+        }
+
+        return "PRESENT";
     }
 }

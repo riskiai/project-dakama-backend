@@ -29,7 +29,16 @@ class Attendance extends Model
         'status',
         'image_in',
         'image_out',
-        'is_late'
+        'is_late',
+        'daily_salary',
+        'hourly_salary',
+        'hourly_overtime_salary',
+        'transport',
+        'makan',
+        'bonus_ontime',
+        'late_cut',
+        'late_minutes',
+        'is_settled',
     ];
 
     public function user()

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Facades\Helper;
 use App\Facades\MessageDakama;
 use App\Http\Requests\Attendance\StoreRequest;
 use App\Http\Resources\Attendance\AdjustmentCollection;
@@ -9,8 +10,11 @@ use App\Http\Resources\Attendance\AttendanceCollection;
 use App\Http\Resources\Attendance\AttendanceResource;
 use App\Models\Attendance;
 use App\Models\AttendanceAdjustment;
+use App\Models\OperationalHour;
 use App\Models\Role;
 use App\Models\UserProjectAbsen;
+use App\Models\UserSalary;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +83,15 @@ class AttendanceController extends Controller
     {
         DB::beginTransaction();
 
-        $user = Auth::user();
+        $operationalHour = OperationalHour::first();
+        if (!$operationalHour) {
+            return MessageDakama::warning("Operational hour not found!");
+        }
+
+        $user = Auth::user()->load('salary');
+        if (!$user->salary) {
+            return MessageDakama::warning("User not registered of a salary!");
+        }
 
         $projectAbsen = UserProjectAbsen::where([
             'project_id' => $request->validated('project_id'),
@@ -131,7 +143,6 @@ class AttendanceController extends Controller
         }
 
         try {
-
             if ($attendance) {
                 $attendance->update([
                     'end_time' => $currentTime,
@@ -142,6 +153,16 @@ class AttendanceController extends Controller
                     'status' => Attendance::ATTENDANCE_OUT
                 ]);
             } else {
+                $lateCut = 0;
+                if (strtotime($currentTime) > strtotime($operationalHour->late_time)) {
+                    $lateCut = Helper::calculateLateCut($user->salary->daily_salary, abs($currentTime->diffInMinutes($operationalHour->late_time)));
+                }
+
+                $bonusOnTime = 0;
+                if (strtotime($currentTime) >= strtotime($operationalHour->ontime_start) && strtotime($currentTime) <= strtotime($operationalHour->ontime_end)) {
+                    $bonusOnTime = $operationalHour->bonus;
+                }
+
                 $attendance = Attendance::create([
                     'project_id' => $request->validated('project_id'),
                     'task_id' => $request->validated('task_id'),
@@ -152,7 +173,15 @@ class AttendanceController extends Controller
                     'user_id' => $user->id,
                     'duration' => $projectAbsen->duration,
                     'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
-                    'status' => Attendance::ATTENDANCE_IN
+                    'status' => Attendance::ATTENDANCE_IN,
+                    'daily_salary' => $user->salary->daily_salary,
+                    'hourly_salary' => $user->salary->hourly_salary,
+                    'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
+                    'transport' => $user->salary->transport,
+                    'makan' => $user->salary->makan,
+                    'late_cut' => $lateCut,
+                    'bonus_ontime' => $bonusOnTime,
+                    'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0
                 ]);
             }
 
@@ -161,6 +190,63 @@ class AttendanceController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error("Gagal mendaftarkan absen: " . $user->name);
+        }
+    }
+
+    public function sync(Request $request)
+    {
+        DB::beginTransaction();
+
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'required|date_format:Y-m-d',
+            'end_date' => 'required|date_format:Y-m-d',
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user = UserSalary::where('user_id', $request->user_id)->first();
+        if (!$user) {
+            return MessageDakama::warning("User not registered of a salary!");
+        }
+
+        $attendances = Attendance::where('user_id', $request->user_id)->whereBetween('start_time', [Carbon::parse($request->start_date), Carbon::parse($request->end_date)->addHours(24)])->get();
+        if (!$attendances) {
+            return MessageDakama::warning("User not attendance!");
+        }
+
+        $attendanceIds = $attendances->pluck('id')->toArray();
+        try {
+            Attendance::whereIn('id', $attendanceIds)->update([
+                'daily_salary' => $user->daily_salary,
+                'hourly_salary' => $user->hourly_salary,
+                'hourly_overtime_salary' => $user->hourly_overtime_salary,
+                'transport' => $user->transport,
+                'makan' => $user->makan,
+            ]);
+
+            foreach ($attendances as $attendance) {
+                if ($attendance->late_cut > 0) {
+                    $lateCut = Helper::calculateLateCut(
+                        $user->daily_salary,
+                        $attendance->late_minutes
+                    );
+
+                    $attendance->update(['late_cut' => $lateCut]);
+                }
+            }
+
+            DB::commit();
+            return MessageDakama::success("Berhasil sinkronisasi gaji");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error("Gagal sinkronisasi gaji" . $th->getMessage());
         }
     }
 
@@ -310,18 +396,40 @@ class AttendanceController extends Controller
 
         $adj = AttendanceAdjustment::find($request->adjustment_id);
 
+        $operationalHour = OperationalHour::first();
+        if (!$operationalHour) {
+            return MessageDakama::warning("Operational hour not found!");
+        }
+
+        $user = UserSalary::where('user_id', $request->user_id)->first();
+        if (!$user) {
+            return MessageDakama::warning("User not registered of a salary!");
+        }
+
+        if (in_array($adj->status, [AttendanceAdjustment::STATUS_APPROVED, AttendanceAdjustment::STATUS_CANCELLED, AttendanceAdjustment::STATUS_APPROVED])) {
+            return MessageDakama::warning("Adjustment has been already " . $adj->status . "!");
+        }
+
         try {
             if ($request->status == AttendanceAdjustment::STATUS_APPROVED) {
+                $newStartTime = Carbon::parse($adj->new_start_time);
+
+                $lateCut = 0;
+                if (strtotime($newStartTime) > strtotime($operationalHour->late_time)) {
+                    $lateCut = Helper::calculateLateCut($user->daily_salary, abs($newStartTime->diffInMinutes($operationalHour->late_time)));
+                }
+
+                $bonusOnTime = 0;
+                if (strtotime($newStartTime) >= strtotime($operationalHour->ontime_start) && strtotime($newStartTime) <= strtotime($operationalHour->ontime_end)) {
+                    $bonusOnTime = $operationalHour->bonus;
+                }
+
                 $adj->attendance()->update([
                     'start_time' => $adj->new_start_time,
-                    'end_time' => $adj->new_end_time
-                ]);
-            }
-
-            if ($request->status == AttendanceAdjustment::STATUS_CANCELLED) {
-                $adj->attendance()->update([
-                    'start_time' => $adj->old_start_time,
-                    'end_time' => $adj->old_end_time
+                    'end_time' => $adj->new_end_time,
+                    'late_cut' => $lateCut,
+                    'bonus_ontime' => $bonusOnTime,
+                    'late_minutes' => $lateCut != 0 ? abs($newStartTime->diffInMinutes($operationalHour->late_time)) : 0
                 ]);
             }
 
