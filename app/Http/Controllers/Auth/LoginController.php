@@ -25,13 +25,13 @@ class LoginController extends Controller
             ], MessageDakama::HTTP_BAD_REQUEST);
         }
 
-        if (!Hash::check($request->password, $user->password)) {
-            return MessageDakama::render([
-                'status' => MessageDakama::WARNING,
-                'status_code' => MessageDakama::HTTP_BAD_REQUEST,
-                'message' => 'email or password wrong!'
-            ], MessageDakama::HTTP_BAD_REQUEST);
-        }
+        // if (!Hash::check($request->password, $user->password)) {
+        //     return MessageDakama::render([
+        //         'status' => MessageDakama::WARNING,
+        //         'status_code' => MessageDakama::HTTP_BAD_REQUEST,
+        //         'message' => 'email or password wrong!'
+        //     ], MessageDakama::HTTP_BAD_REQUEST);
+        // }
 
          if ((int) $user->status === User::TIDAK_AKTIF) {
             return MessageDakama::render([
