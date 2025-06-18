@@ -21,6 +21,7 @@ use App\Http\Resources\Users\UsersCollection;
 use App\Http\Requests\User\CreateNotLoginRequest;
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdatePassswordRequest;
+use App\Http\Resources\Users\UserResource;
 
 class UsersController extends Controller
 {
@@ -52,7 +53,7 @@ class UsersController extends Controller
         if ($request->has('role_id')) {
             // Ambil array role_id dari request, pastikan dalam bentuk array
             $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
-    
+
             // Terapkan filter berdasarkan role_id
             $query->whereIn('role_id', $roleIds);
         }
@@ -112,7 +113,7 @@ class UsersController extends Controller
                     'kode_divisi' => $user->divisi->kode_divisi ?? null,
                 ],
                 'status_users' => $this->statusUsersKubika($user),
-                 'daily_salary' => $user->salary ? $user->salary->daily_salary : 0,
+                'daily_salary' => $user->salary ? $user->salary->daily_salary : 0,
                 'hourly_salary' => $user->salary ? $user->salary->hourly_salary : 0,
                 'hourly_overtime_salary' => $user->salary ? $user->salary->hourly_overtime_salary : 0,
                 'transport' => $user->salary ? $user->salary->transport : 0,
@@ -148,7 +149,7 @@ class UsersController extends Controller
                     return MessageDakama::error('Only an OWNER can assign the OWNER role.');
                 }
             }
-    
+
 
             // Generate password acak 6 karakter
             $randomPassword = $this->generateRandomPassword();
@@ -222,8 +223,8 @@ class UsersController extends Controller
             }
 
             $user->update($userData);
-            
-            if ($user->salary ) {
+
+            if ($user->salary) {
                 $user->salary->update([
                     "daily_salary" => $request->daily_salary,
                     "hourly_salary" => $request->hourly_salary,
@@ -231,7 +232,7 @@ class UsersController extends Controller
                     "transport" => $request->transport,
                     "makan" => $request->makan,
                 ]);
-            }else {
+            } else {
                 $user->salary()->create([
                     "daily_salary" => $request->daily_salary,
                     "hourly_salary" => $request->hourly_salary,
@@ -241,15 +242,15 @@ class UsersController extends Controller
                 ]);
             }
 
-           /*  
+            /*
             if ($user->manPower) {
                     $user->manPower->update([
                         "daily_salary_master" => $request->daily_salary,
                         "hourly_salary_master" => $request->hourly_salary,
                         "hourly_overtime_salary_master" => $request->hourly_overtime_salary,
                     ]);
-                } 
-            */       
+                }
+            */
 
             DB::commit();
             return MessageDakama::success("User $user->name has been updated");
@@ -259,7 +260,8 @@ class UsersController extends Controller
         }
     }
 
-       public function updateStatusAkitf($id) {
+    public function updateStatusAkitf($id)
+    {
         DB::beginTransaction();
 
         try {
@@ -281,7 +283,6 @@ class UsersController extends Controller
 
             DB::commit();
             return MessageDakama::success("Status user {$user->name} berhasil diubah menjadi Aktif.", $user);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error('Gagal mengubah status user: ' . $th->getMessage());
@@ -311,7 +312,6 @@ class UsersController extends Controller
 
             DB::commit();
             return MessageDakama::success("Status user {$user->name} berhasil diubah menjadi Tidak Aktif.", $user);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error('Gagal mengubah status user: ' . $th->getMessage());
@@ -462,33 +462,33 @@ class UsersController extends Controller
     public function UpdatePasswordWithEmail(Request $request)
     {
         DB::beginTransaction();
-    
+
         try {
             // Validasi email yang diberikan
             $request->validate([
                 'email' => 'required|email|exists:users,email', // Pastikan email valid dan ada di database
             ]);
-    
+
             // Ambil user berdasarkan email
             $user = User::where('email', $request->email)->first();
-    
+
             if (!$user) {
                 return MessageDakama::error('Email not found!'); // Jika tidak ada user dengan email ini
             }
-    
+
             // Generate password baru secara acak
             $newPassword = $this->generateRandomPassword(); // 8 karakter, bisa disesuaikan
-    
+
             // Update password pengguna dengan password baru
             $user->update([
                 'password' => bcrypt($newPassword), // Enkripsi password
             ]);
-    
+
             // Kirim email dengan password baru ke pengguna
             Mail::to($user->email)->send(new PasswordRecoveryMail($user, $newPassword));
-    
+
             DB::commit();
-    
+
             // Tambahkan password baru di response
             return MessageDakama::success('Password has been reset successfully. Check your email for the new password.');
         } catch (\Throwable $th) {
@@ -569,11 +569,19 @@ class UsersController extends Controller
 
             // Kembalikan pesan sukses
             return MessageDakama::success('Your password has been successfully updated.');
-
         } catch (\Throwable $th) {
             DB::rollBack();
             // Jika terjadi error
             return MessageDakama::error('An error occurred while updating the password: ' . $th->getMessage());
         }
+    }
+
+    public function me(Request $request)
+    {
+        $user = $request->user();
+
+        $user->access = $user->getAllPermissions()->pluck('name');
+
+        return MessageDakama::render(new UserResource($user), MessageDakama::HTTP_OK);
     }
 }

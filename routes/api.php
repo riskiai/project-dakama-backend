@@ -15,6 +15,7 @@ use App\Http\Controllers\MutationController;
 use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\OvertimeController;
 use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
 use App\Http\Controllers\Project\ProjectController;
@@ -43,10 +44,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('user')->group(function () {
         Route::get('/', [UsersController::class, 'index']);
         Route::get('all', [UsersController::class, 'usersAll']);
-        Route::get('me', function (Request $request) {
-            // dd($request->user());
-            return $request->user();
-        });
+        Route::get('me', [UsersController::class, 'me']);
         Route::get('/{id}', [UsersController::class, 'show']);
         Route::post('store', [UsersController::class, 'store']);
         Route::put('update/{id}', [UsersController::class, 'update']);
@@ -203,5 +201,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/show/{id}', [PayrollController::class, 'show']);
         Route::put('/approval/{id}', [PayrollController::class, 'approval']);
         Route::delete('/destroy/{id}', [PayrollController::class, 'destroy']);
+    });
+
+    Route::prefix('permission')->group(function () {
+        Route::get('/index', [PermissionController::class, 'index']);
+        Route::post('/store', [PermissionController::class, 'store']);
+        Route::post('/assign', [PermissionController::class, 'assign']);
+        Route::post('/unassign', [PermissionController::class, 'unassign']);
+        Route::delete('/destroy/{id}', [PermissionController::class, 'destroy']);
     });
 });
