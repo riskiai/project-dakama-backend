@@ -20,7 +20,7 @@ class MessageDakama extends Response
         return response()->json([
             'status' => self::SUCCESS,
             'status_code' => self::HTTP_OK,
-            'message' => $message
+            'message' => $message,
         ], self::HTTP_OK);
     }
 
@@ -68,6 +68,4 @@ class MessageDakama extends Response
             'message' => $message
         ], self::HTTP_UNAUTHORIZED);  // Ubah status code menjadi 401
     }
-
-
 }
