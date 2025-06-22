@@ -129,21 +129,27 @@ class ContactController extends Controller
         $contactType = ContactType::find($request->contact_type);
 
         try {
-             // Memeriksa apakah file attachment_npwp ada
-             $npwpPath = null;
-             if ($request->hasFile('attachment_npwp')) {
-                 // Simpan file di disk 'public'
-                 $npwpPath = $request->file('attachment_npwp')->store(Company::ATTACHMENT_NPWP, 'public');
-             }
-     
-             $filePath = $request->hasFile('attachment_file') ? $request->file('attachment_file')->store(Company::ATTACHMENT_FILE, 'public') : null;
-     
-             $requestData = $request->all();
-             $requestData['contact_type_id'] = $contactType->id;
-             $requestData['npwp'] = $npwpPath;
-             $requestData['file'] = $filePath;
-     
-             $contact = Company::create($requestData);
+            // Memeriksa apakah file attachment_npwp ada
+            $npwpPath = "-";
+            if ($request->hasFile('attachment_npwp')) {
+                // Simpan file di disk 'public'
+                $npwpPath = $request->file('attachment_npwp')->store(Company::ATTACHMENT_NPWP, 'public');
+            }
+
+            $email = "-";
+            if ($request->has('email')) {
+                $email = $request->email;
+            }
+
+            $filePath = $request->hasFile('attachment_file') ? $request->file('attachment_file')->store(Company::ATTACHMENT_FILE, 'public') : null;
+
+            $requestData = $request->all();
+            $requestData['contact_type_id'] = $contactType->id;
+            $requestData['npwp'] = $npwpPath;
+            $requestData['file'] = $filePath;
+            $requestData['email'] = $email;
+
+            $contact = Company::create($requestData);
 
             DB::commit();
             return MessageDakama::success("contact $contact->name has been created");
@@ -168,35 +174,35 @@ class ContactController extends Controller
         }
 
         try {
-              // Memeriksa apakah file attachment_npwp ada dan menyimpannya
-        $npwpPath = $contact->npwp; // Gunakan path lama jika file tidak di-upload
-        if ($request->hasFile('attachment_npwp')) {
-            // Hapus file lama jika ada
-            if ($npwpPath && Storage::disk('public')->exists($npwpPath)) {
-                Storage::disk('public')->delete($npwpPath);
+            // Memeriksa apakah file attachment_npwp ada dan menyimpannya
+            $npwpPath = $contact->npwp; // Gunakan path lama jika file tidak di-upload
+            if ($request->hasFile('attachment_npwp')) {
+                // Hapus file lama jika ada
+                if ($npwpPath && Storage::disk('public')->exists($npwpPath)) {
+                    Storage::disk('public')->delete($npwpPath);
+                }
+                // Simpan file baru
+                $npwpPath = $request->file('attachment_npwp')->store(Company::ATTACHMENT_NPWP, 'public');
             }
-            // Simpan file baru
-            $npwpPath = $request->file('attachment_npwp')->store(Company::ATTACHMENT_NPWP, 'public');
-        }
 
-        // Memeriksa apakah file attachment_file ada dan menyimpannya
-        $filePath = $contact->file; // Gunakan path lama jika file tidak di-upload
-        if ($request->hasFile('attachment_file')) {
-            // Hapus file lama jika ada
-            if ($filePath && Storage::disk('public')->exists($filePath)) {
-                Storage::disk('public')->delete($filePath);
+            // Memeriksa apakah file attachment_file ada dan menyimpannya
+            $filePath = $contact->file; // Gunakan path lama jika file tidak di-upload
+            if ($request->hasFile('attachment_file')) {
+                // Hapus file lama jika ada
+                if ($filePath && Storage::disk('public')->exists($filePath)) {
+                    Storage::disk('public')->delete($filePath);
+                }
+                // Simpan file baru
+                $filePath = $request->file('attachment_file')->store(Company::ATTACHMENT_FILE, 'public');
             }
-            // Simpan file baru
-            $filePath = $request->file('attachment_file')->store(Company::ATTACHMENT_FILE, 'public');
-        }
 
-        // Update data lainnya
-        $requestData = $request->all();
-        $requestData['contact_type_id'] = $contactType->id;
-        $requestData['npwp'] = $npwpPath;
-        $requestData['file'] = $filePath;
+            // Update data lainnya
+            $requestData = $request->all();
+            $requestData['contact_type_id'] = $contactType->id;
+            $requestData['npwp'] = $npwpPath;
+            $requestData['file'] = $filePath;
 
-        $contact->update($requestData);
+            $contact->update($requestData);
 
             DB::commit();
             return MessageDakama::success("contact $contact->name has been updated");
@@ -259,38 +265,38 @@ class ContactController extends Controller
 
     public function showByContactType(Request $request)
     {
-         // inisiasi company/contact dalam bentuk query, supaya bisa dilakukan untuk filtering
-         $query = Company::query();
+        // inisiasi company/contact dalam bentuk query, supaya bisa dilakukan untuk filtering
+        $query = Company::query();
 
-         if ($request->has('contact_type')) {
-             $query->where('contact_type_id', $request->contact_type);
-         }
- 
-         // pembuatan kondisi ketika params search
-         if ($request->has('search')) {
-             // maka lakukan query bersarang seperti dibawah ini
-             // $query->where(func...{}) => query akan berjalan jika kondisi didalamnya terpenuhi
-             $query->where(function ($query) use ($request) {
-                 // query ini digunakan untuk filtering data
-                 $query->where('name', 'like', "%$request->search%")
-                     ->orWhere('pic_name', 'like', "%$request->search%")
-                     ->orWhere('phone', 'like', "%$request->search%")
-                     ->orWhere('bank_name', 'like', "%$request->search%")
-                     ->orWhere('account_name', 'like', "%$request->search%")
-                     ->orWhere('account_number', 'like', "%$request->search%")
-                     ->orWhereHas('contactType', function ($query) use ($request) { // query ini digunakan jika ada yang mencari ke arah relasinya, artinya sama seperti baris ke 26
-                         $query->where('name', 'like', "%$request->search%");
-                     });
-             });
-         }
- 
-         // keluaran dari index ini merupakan paginate
-         $contacts = $query->paginate($request->per_page);
- 
-         // untuk index pengelolaan datanya terpisah file
-         // untuk mempertahankan filtering bawaan paginate laravel
-         // pembuatan file bisa menggunakan command `php artisan make:resource NamaFile`
-         return new ContactCollection($contacts);
+        if ($request->has('contact_type')) {
+            $query->where('contact_type_id', $request->contact_type);
+        }
+
+        // pembuatan kondisi ketika params search
+        if ($request->has('search')) {
+            // maka lakukan query bersarang seperti dibawah ini
+            // $query->where(func...{}) => query akan berjalan jika kondisi didalamnya terpenuhi
+            $query->where(function ($query) use ($request) {
+                // query ini digunakan untuk filtering data
+                $query->where('name', 'like', "%$request->search%")
+                    ->orWhere('pic_name', 'like', "%$request->search%")
+                    ->orWhere('phone', 'like', "%$request->search%")
+                    ->orWhere('bank_name', 'like', "%$request->search%")
+                    ->orWhere('account_name', 'like', "%$request->search%")
+                    ->orWhere('account_number', 'like', "%$request->search%")
+                    ->orWhereHas('contactType', function ($query) use ($request) { // query ini digunakan jika ada yang mencari ke arah relasinya, artinya sama seperti baris ke 26
+                        $query->where('name', 'like', "%$request->search%");
+                    });
+            });
+        }
+
+        // keluaran dari index ini merupakan paginate
+        $contacts = $query->paginate($request->per_page);
+
+        // untuk index pengelolaan datanya terpisah file
+        // untuk mempertahankan filtering bawaan paginate laravel
+        // pembuatan file bisa menggunakan command `php artisan make:resource NamaFile`
+        return new ContactCollection($contacts);
     }
 
     public function destroy($id)
