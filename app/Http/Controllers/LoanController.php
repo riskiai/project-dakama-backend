@@ -61,7 +61,7 @@ class LoanController extends Controller
                 'nominal' => $request->nominal,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason,
-                'latest' => $request->reason,
+                'latest' => $user->loan,
             ]);
 
             DB::commit();

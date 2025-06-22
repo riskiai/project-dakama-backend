@@ -16,10 +16,10 @@ return new class extends Migration
             $table->unsignedBigInteger('contact_type_id')->nullable();
             $table->string('name');
             $table->string('address');
-            $table->string('npwp');
+            $table->string('npwp')->nullable();
             $table->string('pic_name');
             $table->string('phone');
-            $table->string('email');
+            $table->string('email')->nullable();
             $table->string('file')->nullable();
             $table->string('bank_name')->nullable();
             $table->string('branch')->nullable();
@@ -28,7 +28,7 @@ return new class extends Migration
             $table->string('account_number')->nullable();
             $table->string('swift_code')->nullable();
             $table->timestamps();
-            $table->softDeletes(); 
+            $table->softDeletes();
         });
     }
 
