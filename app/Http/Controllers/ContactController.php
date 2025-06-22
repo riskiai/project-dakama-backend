@@ -138,7 +138,7 @@ class ContactController extends Controller
 
             $email = "-";
             if ($request->has('email')) {
-                $email = $request->email;
+                $email = $request->email ?? "-";
             }
 
             $filePath = $request->hasFile('attachment_file') ? $request->file('attachment_file')->store(Company::ATTACHMENT_FILE, 'public') : null;

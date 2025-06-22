@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Facades\MessageDakama;
 use App\Http\Resources\PermissionResource;
+use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Permission\Models\Permission;
 
 class PermissionController extends Controller
 {
@@ -19,7 +19,11 @@ class PermissionController extends Controller
 
     public function index()
     {
-        $permissions =  $this->permission->orderBy("id", "asc")->get(["id", "name"]);
+        $query = $this->permission->query()->select('id', 'name', 'parent_id');
+        $query->whereNull('parent_id');
+        $query->with(['children']);
+
+        $permissions = $query->get();
 
         return PermissionResource::collection($permissions);
     }
@@ -30,6 +34,7 @@ class PermissionController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|unique:permissions,name',
+            'parent_id' => 'nullable|exists:permissions,id'
         ]);
 
         if ($validator->fails()) {
@@ -44,6 +49,7 @@ class PermissionController extends Controller
             $permission = $this->permission->create([
                 'name' => ucwords($request->name),
                 'guard_name' => 'api',
+                'parent_id' => $request->parent_id ?? null
             ]);
             DB::commit();
             return MessageDakama::render([
