@@ -20,7 +20,7 @@ class MessageDakama extends Response
         return response()->json([
             'status' => self::SUCCESS,
             'status_code' => self::HTTP_OK,
-            'data' => $message,
+            'message' => $message,
         ], self::HTTP_OK);
     }
 
