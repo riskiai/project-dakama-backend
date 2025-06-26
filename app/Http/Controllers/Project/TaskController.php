@@ -28,6 +28,11 @@ class TaskController extends Controller
             // $query->whereIn('project_id', explode(',', $request->project_id));
         }
 
+         if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where('nama_task', 'like', "%{$search}%");
+        }
+
         $query->latest(); 
 
         $tasks = $query->paginate($request->per_page);
@@ -41,6 +46,11 @@ class TaskController extends Controller
         // Optional: tambahkan filter jika ada request type
         if ($request->filled('type')) {
             $query->where('type', $request->type);
+        }
+
+         if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where('nama_task', 'like', "%{$search}%");
         }
 
         $tasks = $query->get();
