@@ -20,7 +20,11 @@ class BudgetCollection extends ResourceCollection
                     'name' => optional($budget->project)->name,
                 ],
                 'nama_budget'  => $budget->nama_budget,
-                'type'       => $this->typetask($budget),
+                // 'type'       => $this->typetask($budget),
+                 'type' => [
+                    'id'    => $budget->type,
+                    'type_budget' => $this->typeLabel($budget->type),
+                ],
                 'nominal'    => $budget->nominal,
                 'created_at' => $budget->created_at,
                 'updated_at' => $budget->updated_at,
@@ -30,7 +34,7 @@ class BudgetCollection extends ResourceCollection
         return $data;
     }
 
-    protected function typetask(Budget $budget)
+    /* protected function typetask(Budget $budget)
     {
         if ($budget->type == Budget::JASA) {
             return 'Jasa';
@@ -39,5 +43,14 @@ class BudgetCollection extends ResourceCollection
         } else {
             return 'Tidak Diketahui';
         }
+    } */
+
+     protected function typeLabel(int $type): string
+    {
+        return match ($type) {
+            Budget::JASA     => 'Jasa',
+            Budget::MATERIAL => 'Material',
+            default          => 'Tidak Diketahui',
+        };
     }
 }

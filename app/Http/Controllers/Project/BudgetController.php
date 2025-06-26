@@ -94,11 +94,24 @@ class BudgetController extends Controller
                 'name' => optional($budget->project)->name,
             ],
             'nama_budget' => $budget->nama_budget,
-            'type' => $budget->type == Budget::JASA ? 'Jasa' : 'Material',
+            // 'type' => $budget->type == Budget::JASA ? 'Jasa' : 'Material',
+             'type' => [
+                    'id'    => $budget->type,
+                    'type_budget' => $this->typeLabel($budget->type),
+                ],
             'nominal' => (float) $budget->nominal,
             'created_at' => $budget->created_at,
             'updated_at' => $budget->updated_at,
         ]);
+    }
+
+     protected function typeLabel(int $type): string
+    {
+        return match ($type) {
+            Budget::JASA     => 'Jasa',
+            Budget::MATERIAL => 'Material',
+            default          => 'Tidak Diketahui',
+        };
     }
 
     public function update(UpdateRequest $request, $id)
