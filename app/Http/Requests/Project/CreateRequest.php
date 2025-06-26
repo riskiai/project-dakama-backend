@@ -45,8 +45,11 @@ class CreateRequest extends FormRequest
             'no_dokumen_project' => 'nullable|string',
                 
             // Produk dan User ID harus berupa array
-            'tasks' => 'nullable|array',
-            'tasks_id.*' => 'nullable|exists:tasks,id|numeric|min:1',
+            // 'tasks' => 'nullable|array',
+            // 'tasks_id.*' => 'nullable|exists:tasks,id|numeric|min:1',
+
+            'tasks_id'   => 'nullable|array',         // ubah dari exists → array
+            'tasks_id.*' => 'nullable|exists:tasks,id',
         
             'user_id' => 'nullable|array',
             'user_id.*' => 'nullable|exists:users,id|numeric|min:1',
