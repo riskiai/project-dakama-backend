@@ -95,7 +95,11 @@ class TaskController extends Controller
                     'name' => optional($task->project)->name,
                 ],
                 'nama_task'  => $task->nama_task,
-                'type'       => $this->typetask($task),
+                // 'type'       => $this->typetask($task),
+                  'type' => [
+                    'id'    => $task->type,
+                    'type_task' => $this->typeLabel($task->type),
+                ],
                 'nominal'    => $task->nominal,
                 'created_at' => $task->created_at,
                 'updated_at' => $task->updated_at,
@@ -103,7 +107,7 @@ class TaskController extends Controller
         ]);
     }
 
-    protected function typetask(Task $task)
+    /* protected function typetask(Task $task)
     {
         if ($task->type == Task::JASA) {
             return 'Jasa';
@@ -112,6 +116,15 @@ class TaskController extends Controller
         } else {
             return 'Tidak Diketahui';
         }
+    } */
+
+    protected function typeLabel(int $type): string
+    {
+        return match ($type) {
+            Task::JASA     => 'Jasa',
+            Task::MATERIAL => 'Material',
+            default        => 'Tidak Diketahui',
+        };
     }
 
     public function update(UpdateRequest $request, $id)
