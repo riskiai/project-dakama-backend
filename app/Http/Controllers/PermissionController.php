@@ -17,9 +17,20 @@ class PermissionController extends Controller
         protected Permission $permission,
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
         $query = $this->permission->query()->select('id', 'name', 'parent_id');
+
+        if ($request->filled('permission_id')) {
+            $permission = $query->where('id', $request->permission_id);
+
+            if ($permission->doesntExist()) {
+                return MessageDakama::warning('Permission does not exist');
+            }
+
+            return new PermissionResource($permission->first());
+        }
+
         $query->whereNull('parent_id');
         $query->with(['children']);
 
