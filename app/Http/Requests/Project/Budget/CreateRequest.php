@@ -26,10 +26,10 @@ class CreateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'project_id'   => 'required|exists:projects,id',
-            'nama_budget'  => 'required|string|max:255',
-            'type'         => 'required|in:1,2', // 1: JASA, 2: MATERIAL
-            'nominal'      => 'required|numeric|min:0',
+            'project_id'   => 'nullable|exists:projects,id',
+            'nama_budget'  => 'nullable|string|max:255',
+            'type'         => 'nullable|in:1,2', // 1: JASA, 2: MATERIAL
+            'nominal'      => 'nullable|numeric|min:0',
         ];
     }
 

@@ -22,6 +22,14 @@ class BudgetController extends Controller
             $query->where('type', $request->type);
         }
 
+         if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+            // jika ingin mendukung multiple id (comma-separated), gunakan:
+            // $query->whereIn('project_id', explode(',', $request->project_id));
+        }
+
+        $query->latest(); 
+
         $budgets = $query->paginate($request->per_page);
 
         return new BudgetCollection($budgets);

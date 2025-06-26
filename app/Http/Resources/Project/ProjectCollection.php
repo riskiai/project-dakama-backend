@@ -19,6 +19,8 @@ class ProjectCollection extends ResourceCollection
      *
      * @return array<int|string, mixed>
      */
+
+     
     public function toArray(Request $request): array
     {
         $user = auth()->user();
@@ -53,7 +55,36 @@ class ProjectCollection extends ResourceCollection
                         ],
                     ];
                 }),
-                'tasks' => $project->tasks() 
+               'tasks' => $project
+                    ->tasksDirect()                     // ← pakai ()
+                    ->select('tasks.*')                 // samakan kolom
+                    ->union(
+                        $project->tasks()->select('tasks.*')   // relasi pivot
+                    )
+                    ->orderByDesc('created_at')         // sekarang aman: query builder
+                    ->get()
+                    ->map(function ($task) {
+                        return [
+                            'id'             => $task->id,
+                            'nama_pekerjaan' => $task->nama_task,
+                            'type_pekerjaan' => $task->type == \App\Models\Task::JASA ? 'Jasa' : 'Material',
+                            'nominal'        => $task->nominal,
+                        ];
+                    }),
+
+                     'budgets' => $project
+                        ->budgetsDirect()                // gunakan query builder
+                        ->orderByDesc('created_at')      // terbaru dahulu
+                        ->get()
+                        ->map(function ($budget) {
+                            return [
+                                'id'            => $budget->id,
+                                'nama_budget'   => $budget->nama_budget,
+                                'type_budget'   => $budget->type == \App\Models\Budget::JASA ? 'Jasa' : 'Material',
+                                'nominal'       => $budget->nominal,
+                            ];
+                        }),
+               /*  'tasks' => $project->tasks() 
                 ->get()
                 ->map(function ($tasks) {
                     return [
@@ -62,7 +93,7 @@ class ProjectCollection extends ResourceCollection
                         'type_pekerjaan' => $tasks->type == \App\Models\Task::JASA ? 'Jasa' : 'Material',
                         'nominal' => $tasks->nominal,
                     ];
-                }),
+                }), */
                 'date' => $project->date,
                 'name' => $project->name,
                 'billing' => $project->billing,

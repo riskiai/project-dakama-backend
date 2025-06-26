@@ -15,6 +15,10 @@ class TasksCollection extends ResourceCollection
         foreach ($this as $task) {
             $data[] = [
                 'id'         => $task->id,
+                 'project' => [
+                    'id' => $task->project_id,
+                    'name' => optional($task->project)->name,
+                ],
                 'nama_task'  => $task->nama_task,
                 'type'       => $this->typetask($task),
                 'nominal'    => $task->nominal,

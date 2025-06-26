@@ -26,9 +26,10 @@ class CreateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nama_task' => 'nullable|string|max:255',
-            'type'      => 'required|string|in:1,2',
-            'nominal'   => 'nullable|numeric|min:0',
+            'project_id'  => 'nullable|exists:projects,id',
+            'nama_task'   => 'nullable|string|max:255',
+            'type'        => 'nullable|string|in:1,2',
+            'nominal'     => 'nullable|numeric|min:0',
         ];
     }
 

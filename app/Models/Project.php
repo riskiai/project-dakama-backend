@@ -143,6 +143,16 @@ class Project extends Model
         return $this->belongsToMany(Task::class, 'projects_user_tasks', 'project_id', 'tasks_id');
     }
 
+     public function tasksDirect()
+    {
+        return $this->hasMany(Task::class, 'project_id', 'id');
+    }
+
+     public function budgetsDirect()
+    {
+        return $this->hasMany(Budget::class, 'project_id', 'id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
@@ -153,6 +163,5 @@ class Project extends Model
     {
         return $this->hasMany(UserProjectAbsen::class, 'project_id', 'id');
     }
-
 
 }

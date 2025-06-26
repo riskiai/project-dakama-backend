@@ -22,6 +22,14 @@ class TaskController extends Controller
             $query->where('type', $request->type);
         }
 
+          if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+            // jika ingin mendukung multiple id (comma-separated), gunakan:
+            // $query->whereIn('project_id', explode(',', $request->project_id));
+        }
+
+        $query->latest(); 
+
         $tasks = $query->paginate($request->per_page);
 
         return new TasksCollection($tasks);
@@ -46,6 +54,7 @@ class TaskController extends Controller
 
         try {
             $task = Task::create([
+                'project_id'   => $request->project_id,
                 'nama_task' => $request->nama_task,
                 'type'      => $request->type,
                 'nominal'   => $request->nominal,
@@ -71,6 +80,10 @@ class TaskController extends Controller
             'status_code' => MessageDakama::HTTP_OK,
             'data' => [
                'id'         => $task->id,
+                 'project' => [
+                    'id' => $task->project_id,
+                    'name' => optional($task->project)->name,
+                ],
                 'nama_task'  => $task->nama_task,
                 'type'       => $this->typetask($task),
                 'nominal'    => $task->nominal,

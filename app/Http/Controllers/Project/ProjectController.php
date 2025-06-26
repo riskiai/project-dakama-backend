@@ -203,6 +203,35 @@ class ProjectController extends Controller
         return new ProjectNameCollection($projects);
     }
 
+     public function nameAll(Request $request)
+    {
+        // 1.  Base query
+        $query = Project::query();
+
+        /* ───────── Global search ───────── */
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('no_dokumen_project', 'like', "%{$search}%")
+                ->orWhereHas('company', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+       
+        if ($request->filled('project')) {
+            $query->where('id', $request->project);
+        }
+      
+        $projects = $query->select('id', 'name')
+                      ->orderBy('name')
+                      ->when(!$request->filled('search'), fn ($q) => $q->limit(5))   
+                      ->get();
+
+        return new ProjectNameCollection($projects);  
+    }
+
     public function show($id)
     {
         $project = Project::with(['company', 'user', 'tenagaKerja', 'tasks'])
