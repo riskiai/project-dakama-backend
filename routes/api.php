@@ -220,6 +220,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/store', [PermissionController::class, 'store']);
         Route::post('/assign', [PermissionController::class, 'assign']);
         Route::post('/unassign', [PermissionController::class, 'unassign']);
+        Route::put('/update/{id}', [PermissionController::class, 'update']);
         Route::delete('/destroy/{id}', [PermissionController::class, 'destroy']);
     });
 });

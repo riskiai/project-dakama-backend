@@ -161,4 +161,41 @@ class PermissionController extends Controller
             return MessageDakama::error($th->getMessage());
         }
     }
+
+    public function update(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        $permission = $this->permission->find($id);
+        if (!$permission) {
+            return MessageDakama::warning('Permission does not exist');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|unique:permissions,name',
+        ]);
+
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $permission->update($validator->validated());
+
+            DB::commit();
+            return MessageDakama::render([
+                'message' => 'Permission updated successfully',
+                'status' => MessageDakama::SUCCESS,
+                'status_code' => MessageDakama::HTTP_OK,
+                'data' => $permission
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return MessageDakama::error($e->getMessage());
+        }
+    }
 }
