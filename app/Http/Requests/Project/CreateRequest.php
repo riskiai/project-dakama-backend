@@ -48,7 +48,7 @@ class CreateRequest extends FormRequest
             // 'tasks' => 'nullable|array',
             // 'tasks_id.*' => 'nullable|exists:tasks,id|numeric|min:1',
 
-            'tasks_id'   => 'nullable|array',         // ubah dari exists → array
+            'tasks_id'   => 'nullable|array',         
             'tasks_id.*' => 'nullable|exists:tasks,id',
         
             'user_id' => 'nullable|array',
