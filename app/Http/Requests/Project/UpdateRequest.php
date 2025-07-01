@@ -51,8 +51,10 @@ class UpdateRequest extends FormRequest
             'tasks_id'   => 'nullable|array',         
             'tasks_id.*' => 'nullable|exists:tasks,id',
         
+            // 'user_id' => 'nullable|array',
+            // 'user_id.*' => 'nullable|exists:users,id|numeric|min:1',
             'user_id' => 'nullable|array',
-            'user_id.*' => 'nullable|exists:users,id|numeric|min:1',
+            'user_id.*' => 'exists:users,id|numeric|min:1',
 
         ];
     }
@@ -64,8 +66,10 @@ class UpdateRequest extends FormRequest
     {
         // Mengubah produk_id dan user_id menjadi array jika hanya satu nilai yang diberikan
         $this->merge([
-            'tasks_id' => is_array($this->input('tasks_id')) ? $this->input('tasks_id') : [$this->input('tasks_id')],
-            'user_id' => is_array($this->input('user_id')) ? $this->input('user_id') : [$this->input('user_id')],
+            'tasks_id' => $this->input('tasks_id') ? (is_array($this->input('tasks_id')) ? $this->input('tasks_id') : [$this->input('tasks_id')]) : [],
+            // 'tasks_id' => is_array($this->input('tasks_id')) ? $this->input('tasks_id') : [$this->input('tasks_id')],
+            // 'user_id' => is_array($this->input('user_id')) ? $this->input('user_id') : [$this->input('user_id')],
+            'user_id' => $this->input('user_id') ? (is_array($this->input('user_id')) ? $this->input('user_id') : [$this->input('user_id')]) : [],
         ]);
     }
 
