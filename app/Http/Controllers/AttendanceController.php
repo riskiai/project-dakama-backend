@@ -28,7 +28,9 @@ class AttendanceController extends Controller
 
         $query = Attendance::query();
 
-        $query->with(['project', 'user', 'task']);
+        $query->with(['project', 'user', 'task' => function ($query) {
+            $query->withTrashed();
+        }]);
 
         if ($user->hasRole(Role::KARYAWAN)) {
             $query->where('user_id', $user->id);

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('overtimes', function (Blueprint $table) {
-            $table->integer('salary_overtime')->after('reason');
+            $table->integer('salary_overtime')->default(0)->nullable()->after('reason');
         });
     }
 
