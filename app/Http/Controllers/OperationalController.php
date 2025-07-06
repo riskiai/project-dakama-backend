@@ -17,7 +17,12 @@ class OperationalController extends Controller
             return MessageDakama::warning("Operational hour not found!");
         }
 
-        return MessageDakama::success($operational);
+        return MessageDakama::render([
+            'status' => MessageDakama::SUCCESS,
+            'status_code' => MessageDakama::HTTP_OK,
+            'message' => "Operational hour found!",
+            "data" => $operational
+        ]);
     }
 
     public function save(Request $request)
