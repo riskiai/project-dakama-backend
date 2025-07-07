@@ -39,22 +39,37 @@ use App\Http\Resources\Purchase\PurchaseCollection;
 
 class PurchaseController extends Controller
 {
-    public function getDataProductPurchase()
+    public function getDataProductPurchase(Request $request)
     {
-        // Ambil semua produk + relasi vendor
-        $products = \App\Models\PurchaseProductCompanies::with('company')->get();
+        $keyword = trim($request->input('search', ''));
 
+        $query = PurchaseProductCompanies::with('company')          // relasi vendor
+                    ->select([
+                        'id',
+                        'company_id',
+                        'product_name',
+                        'harga',
+                        'stok',
+                        'subtotal_harga_product',
+                        'ppn',
+                    ]);
+
+        $query->when(
+            $keyword !== '',
+            // Jika ada keyword ⇒ filter nama produk, tanpa limit
+            fn ($q) => $q->where('product_name', 'like', "%{$keyword}%"),
+            // Jika tidak ada keyword ⇒ batasi 5 entri
+            fn ($q) => $q->limit(5)
+        );
+
+        $products = $query->orderBy('product_name')->get();
+
+        // Transformasi (hitung PPN dsb.) — persis seperti fungsi lama
         $data = $products->map(function ($prod) {
-
-            /* hitung dasar (harga × stok) */
             $base = $prod->harga * $prod->stok;
-
-            /* konversi rate: "11" → 0.11, null → 0 */
             $rate = $prod->ppn
                 ? ((float) $prod->ppn > 1 ? (float) $prod->ppn / 100 : (float) $prod->ppn)
                 : 0;
-
-            /* rupiah PPN */
             $ppnAmount = round($base * $rate, 2);
 
             return [
@@ -67,7 +82,7 @@ class PurchaseController extends Controller
                 'harga'                  => $prod->harga,
                 'stok'                   => $prod->stok,
                 'subtotal_harga_product' => $prod->subtotal_harga_product,
-                'ppn' => [
+                'ppn'                    => [
                     'rate'   => $prod->ppn ? (float) $prod->ppn : 0,
                     'amount' => $ppnAmount,
                 ],
@@ -76,10 +91,7 @@ class PurchaseController extends Controller
 
         return response()->json(['data' => $data]);
     }
-
     
-
-
     public function index(Request $request)
     {
         $query = Purchase::with([
