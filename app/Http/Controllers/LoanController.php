@@ -77,7 +77,7 @@ class LoanController extends Controller
                 'nominal' => $request->nominal,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason,
-                'latest' => $user->loan,
+                'latest' => $request->nominal,
             ]);
 
             DB::commit();
@@ -238,11 +238,7 @@ class LoanController extends Controller
             return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
         }
 
-        if ($request->nominal > $loan->nominal) {
-            return MessageDakama::warning("Nominal can't be bigger than loan balance {$loan->nominal}, can't be processed!");
-        }
-
-        if ($loan->latest > 0 && $request->nominal > $loan->latest) {
+        if ($request->nominal > $loan->latest) {
             return MessageDakama::warning("Nominal can't be bigger than loan balance {$loan->latest}, can't be processed!");
         }
 
@@ -269,8 +265,8 @@ class LoanController extends Controller
             ]);
 
             $loan->update([
-                'latest' => ($loan->nominal - $loan->latest) - $request->nominal,
-                'is_settled' => ($loan->nominal - $loan->latest) - $request->nominal < 1 ? true : false
+                'latest' => ($loan->latest) - $request->nominal,
+                'is_settled' => ($loan->latest) - $request->nominal < 1 ? true : false
             ]);
 
             DB::commit();
