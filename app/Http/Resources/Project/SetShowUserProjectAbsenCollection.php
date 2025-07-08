@@ -19,13 +19,7 @@ class SetShowUserProjectAbsenCollection extends JsonResource
                 'id'   => $this->project_id,
                 'name' => $this->project->name ?? null,
             ],
-            'longitude'  => $this->longitude ?? null,
-            'latitude'   => $this->latitude ?? null,
-            'radius'     => $this->radius ?? null,
-            'status'     => $this->status ?? null,
-            'jam_masuk'  => $this->jam_masuk ?? null,
-            'jam_pulang' => $this->jam_pulang ?? null,
-            'keterangan' => $this->keterangan ?? null,
+            'location'   => $this->location,
         ];
     }
 }

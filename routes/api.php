@@ -18,6 +18,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\Project\TaskController;
 use App\Http\Controllers\Project\BudgetController;
+use App\Http\Controllers\Project\LocationController;
 use App\Http\Controllers\Project\ProjectController;
 use App\Http\Controllers\Project\SetUsersProjectController;
 use App\Http\Controllers\Purchase\PurchaseController;
@@ -88,6 +89,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Project
     Route::prefix('project')->group(function () {
+        Route::prefix('assign-location')->group(function () {
+            Route::get('/', [LocationController::class, 'index']);
+            Route::get('/{id}', [LocationController::class, 'show']);
+            Route::post('/', [LocationController::class, 'store']);
+            Route::put('/{id}', [LocationController::class, 'update']);
+            Route::delete('/{id}', [LocationController::class, 'destroy']);
+        });
+
         // Task Project
         Route::get('task', [TaskController::class, 'index']);
         Route::get('taskall', [TaskController::class, 'indexall']);
@@ -209,6 +218,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('payroll')->group(function () {
         Route::get('/index', [PayrollController::class, 'index']);
+        Route::get('/counting', [PayrollController::class, 'counting']);
         Route::post('/store', [PayrollController::class, 'store']);
         Route::get('/show/{id}', [PayrollController::class, 'show']);
         Route::put('/approval/{id}', [PayrollController::class, 'approval']);

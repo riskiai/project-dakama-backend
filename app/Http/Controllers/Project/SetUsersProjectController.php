@@ -11,6 +11,7 @@ use App\Http\Requests\Project\SetAbsen\CreateRequest;
 use App\Http\Requests\Project\SetAbsen\UpdateRequest;
 use App\Http\Resources\Project\SetUserProjectAbsenCollection;
 use App\Http\Resources\Project\SetShowUserProjectAbsenCollection;
+use App\Models\ProjectHasLocation;
 
 class SetUsersProjectController extends Controller
 {
@@ -30,8 +31,6 @@ class SetUsersProjectController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-
-        $query->orderByDesc('jam_masuk');
 
         $absensi = $query->paginate($request->per_page);
 
@@ -55,8 +54,6 @@ class SetUsersProjectController extends Controller
             $query->where('status', $request->status);
         }
 
-        $query->orderByDesc('jam_masuk');
-
         $absensi = $query->get();
 
         return new SetUserProjectAbsenCollection($absensi);
@@ -66,6 +63,11 @@ class SetUsersProjectController extends Controller
     {
         DB::beginTransaction();
 
+        $location = ProjectHasLocation::find($request->location_id);
+        if (!$location) {
+            return MessageDakama::notFound("Lokasi dengan ID " . $request->location_id . " tidak ditemukan.");
+        }
+
         try {
             $userIds = array_filter($request->input('user_id', []));
 
@@ -73,14 +75,7 @@ class SetUsersProjectController extends Controller
                 UserProjectAbsen::create([
                     'user_id'    => $userId,
                     'project_id' => $request->project_id,
-                    'longitude'  => $request->longitude,
-                    'latitude'   => $request->latitude,
-                    'radius'     => $request->radius,
-                    'status'     => null, // status absen default null (belum absen)
-                    'jam_masuk'  => null,
-                    'jam_pulang' => null,
-                    'keterangan' => null,
-                    'duration'   => $request->validated('duration', 8),
+                    'location_id' => $request->location_id,
                 ]);
             }
 
@@ -96,6 +91,12 @@ class SetUsersProjectController extends Controller
     {
         DB::beginTransaction();
 
+        $location = ProjectHasLocation::find($request->location_id);
+        if (!$location) {
+            return MessageDakama::notFound("Lokasi dengan ID " . $request->location_id . " tidak ditemukan.");
+        }
+
+
         try {
             $absen = UserProjectAbsen::find($id);
 
@@ -106,9 +107,7 @@ class SetUsersProjectController extends Controller
             $absen->update([
                 'user_id'    => $request->user_id,
                 'project_id' => $request->project_id,
-                'longitude'  => $request->longitude,
-                'latitude'   => $request->latitude,
-                'radius'     => $request->radius,
+                'location_id' => $request->location_id,
             ]);
 
             DB::commit();

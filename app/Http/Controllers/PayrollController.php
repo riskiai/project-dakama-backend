@@ -28,6 +28,7 @@ class PayrollController extends Controller
 
         if ($user->hasRole(Role::KARYAWAN)) {
             $query->where('user_id', $user->id);
+            $query->where('status', Payroll::STATUS_APPROVED);
         }
 
         if ($request->filled('user_id')) {
@@ -236,5 +237,31 @@ class PayrollController extends Controller
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
         }
+    }
+
+    public function counting(Request $request)
+    {
+        $payroll = Payroll::selectRaw('sum(total_daily_salary) as total_daily_salary, sum(total_loan) as total_loan, sum(total_late_cut) as total_late_cut, sum(total_overtime) as total_overtime')
+            ->when($request->filled('user_id') && $request->has('user_id'), function ($query) use ($request) {
+                $query->where('user_id', $request->user_id);
+            })
+            ->when($request->filled('pic_id') && $request->has('pic_id'), function ($query) use ($request) {
+                $query->where('pic_id', $request->pic_id);
+            })
+            ->when($request->filled('status') && $request->has('status'), function ($query) use ($request) {
+                $query->where('status', $request->status);
+            })
+            ->when($request->filled('date') && $request->has('date'), function ($query) use ($request) {
+                $query->whereDate('approved_at', $request->date);
+            })
+            ->first();
+
+        return MessageDakama::success("Payroll successfully counted", [
+            "total_daily_salary" => (int) $payroll->total_daily_salary,
+            "total_loan" => (int) $payroll->total_loan,
+            "total_late_cut" => (int) $payroll->total_late_cut,
+            "total_overtime" => (int) $payroll->total_overtime,
+            "total_salary" => ($payroll->total_daily_salary + $payroll->total_loan - $payroll->total_late_cut + $payroll->total_overtime),
+        ]);
     }
 }

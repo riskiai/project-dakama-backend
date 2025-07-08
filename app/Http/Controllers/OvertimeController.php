@@ -22,11 +22,33 @@ class OvertimeController extends Controller
 
         $query = Overtime::query();
 
-        $query->with(['project', 'task', 'user']);
+        $query->with(['project', 'task' => function ($query) {
+            $query->withTrashed();
+        }, 'user']);
 
         if ($user->hasRole(Role::KARYAWAN)) {
             $query->where('user_id', $user->id);
         }
+
+        $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
+            $query->where('user_id', $request->user_id);
+        });
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $query->when($request->has('project_id') && $request->filled('project_id'), function ($query) use ($request) {
+            $query->where('project_id', $request->project_id);
+        });
+
+        $query->when($request->has('task_id') && $request->filled('task_id'), function ($query) use ($request) {
+            $query->where('task_id', $request->task_id);
+        });
+
+        $query->when($request->has('date') && $request->filled('date'), function ($query) use ($request) {
+            $query->whereDate('request_date', $request->date);
+        });
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $overtimes = $query->paginate($request->per_page);
@@ -89,12 +111,14 @@ class OvertimeController extends Controller
 
     public function show($id)
     {
-        $overtime = Overtime::find($id);
+        $overtime = Overtime::with(['task' => function ($query) {
+            $query->withTrashed();
+        }])->find($id);
         if (!$overtime) {
             return MessageDakama::notFound('Overtime not found');
         }
 
-        $overtime->load(['project', 'task', 'user']);
+        $overtime->load(['project', 'user']);
 
         return new OvertimeResource($overtime);
     }
@@ -174,13 +198,13 @@ class OvertimeController extends Controller
             $formData = [
                 'status' => $request->status
             ];
-            
+
             if ($request->status == Overtime::STATUS_APPROVED) {
                 $formData['salary_overtime'] = ($overtime->user->salary->hourly_overtime_salary * $overtime->duration);
             }
-            
+
             $overtime->update($formData);
-            
+
             DB::commit();
             return MessageDakama::success("Overtime successfully {$request->status}");
         } catch (\Throwable $th) {
