@@ -218,6 +218,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('payroll')->group(function () {
         Route::get('/index', [PayrollController::class, 'index']);
+        Route::get('/counting', [PayrollController::class, 'counting']);
         Route::post('/store', [PayrollController::class, 'store']);
         Route::get('/show/{id}', [PayrollController::class, 'show']);
         Route::put('/approval/{id}', [PayrollController::class, 'approval']);

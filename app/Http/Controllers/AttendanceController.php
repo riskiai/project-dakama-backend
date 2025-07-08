@@ -52,6 +52,10 @@ class AttendanceController extends Controller
             $query->where('status', $request->status);
         });
 
+        $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
+            $query->where('user_id', $request->user_id);
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $adjs = $query->paginate($request->per_page);
         } else {
@@ -68,7 +72,12 @@ class AttendanceController extends Controller
 
         $currentTime = now();
 
-        $attendance = Attendance::where('user_id', $user->id)->whereDate('start_time', $currentTime)->first();
+        $attendance = Attendance::with(['task' => function ($query) {
+            $query->withTrashed();
+        }])
+            ->where('user_id', $user->id)
+            ->whereDate('start_time', $currentTime)
+            ->first();
 
         if (!$attendance) {
             return MessageDakama::warning("User not attendance now!");
@@ -78,7 +87,7 @@ class AttendanceController extends Controller
             return MessageDakama::warning("User already attendance out!");
         }
 
-        return new AttendanceResource($attendance->first());
+        return new AttendanceResource($attendance);
     }
 
     public function store(StoreRequest $request)
@@ -154,6 +163,8 @@ class AttendanceController extends Controller
                     'image_out' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public'),
                     'status' => Attendance::ATTENDANCE_OUT
                 ]);
+
+                $message = "User {$user->name} attendance out success!";
             } else {
                 $lateCut = 0;
                 if (strtotime($currentTime) > strtotime($operationalHour->late_time)) {
@@ -185,10 +196,12 @@ class AttendanceController extends Controller
                     'bonus_ontime' => $bonusOnTime,
                     'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0
                 ]);
+
+                $message = "User {$user->name} attendance in success!";
             }
 
             DB::commit();
-            return MessageDakama::success("Berhasil mendaftarkan absen: " . $user->name);
+            return MessageDakama::success($message);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error("Gagal mendaftarkan absen: " . $user->name);

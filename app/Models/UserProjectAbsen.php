@@ -21,14 +21,7 @@ class UserProjectAbsen extends Model
     protected $fillable = [
         'user_id',
         'project_id',
-        'longitude',
-        'latitude',
-        'radius',
-        'status',
-        'jam_masuk',
-        'jam_pulang',
-        'keterangan',
-        'duration',
+        'location_id',
     ];
 
     public function user()
@@ -39,5 +32,10 @@ class UserProjectAbsen extends Model
     public function project()
     {
         return $this->belongsTo(Project::class, 'project_id', 'id')->withDefault();
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(ProjectHasLocation::class, 'location_id', 'id')->withDefault();
     }
 }

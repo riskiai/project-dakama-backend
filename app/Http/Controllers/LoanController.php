@@ -26,6 +26,22 @@ class LoanController extends Controller
             $query->where('user_id', $user->id);
         }
 
+        $query->when($request->has('project_id') && $request->filled('project_id'), function ($query) use ($request) {
+            $query->where('project_id', $request->project_id);
+        });
+
+        $query->when($request->has('task_id') && $request->filled('task_id'), function ($query) use ($request) {
+            $query->where('task_id', $request->task_id);
+        });
+
+        $query->when($request->has('date') && $request->filled('date'), function ($query) use ($request) {
+            $query->whereDate('request_date', $request->date);
+        });
+
+        $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
+            $query->where('user_id', $request->user_id);
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $loans = $query->paginate($request->per_page);
         } else {

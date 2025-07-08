@@ -33,7 +33,7 @@ class LoginController extends Controller
             ], MessageDakama::HTTP_BAD_REQUEST);
         }
 
-         if ((int) $user->status === User::TIDAK_AKTIF) {
+        if ((int) $user->status === User::TIDAK_AKTIF) {
             return MessageDakama::render([
                 'status' => MessageDakama::WARNING,
                 'status_code' => MessageDakama::HTTP_FORBIDDEN,
@@ -43,7 +43,7 @@ class LoginController extends Controller
 
         try {
             $role = [strtolower($user->role->name)];
-            $token = $user->createToken('api', $role)->plainTextToken;
+            $token = $user->createToken('api', $role, now()->addHours(7))->plainTextToken;
 
             DB::commit();
             return MessageDakama::render([

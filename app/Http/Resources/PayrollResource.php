@@ -21,7 +21,7 @@ class PayrollResource extends JsonResource
             "pic_id" => $this->pic_id,
             "pic_name" => $this->pic->name,
             "approved_by" => $this->approved_by,
-            "approved_name" => $this->approved->name,
+            "approved_name" => $this->approved?->name,
             "total_attendance" => $this->total_attendance,
             "total_daily_salary" => $this->total_daily_salary,
             "total_overtime" => $this->total_overtime,

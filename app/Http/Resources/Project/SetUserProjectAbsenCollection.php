@@ -22,13 +22,7 @@ class SetUserProjectAbsenCollection extends ResourceCollection
                     'id'   => $item->project_id,
                     'name' => $item->project->name ?? null,
                 ],
-                'longitude'  => $item->longitude ?? null,
-                'latitude'   => $item->latitude ?? null,
-                'radius'     => $item->radius ?? null,
-                'status'     => $item->status ?? null,
-                'jam_masuk'  => $item->jam_masuk ?? null,
-                'jam_pulang' => $item->jam_pulang ?? null,
-                'keterangan' => $item->keterangan ?? null,
+                'location'   => $item->location,
             ];
         }
 
