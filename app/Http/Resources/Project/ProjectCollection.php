@@ -38,7 +38,7 @@ class ProjectCollection extends ResourceCollection
                     'name' => optional($project->company)->name,
                     'contact_type' => optional($project->company)->contactType?->name,
                 ],
-                'karyawan' => $project->tenagaKerja() 
+                /* 'karyawan' => $project->tenagaKerja() 
                 ->get()
                 ->map(function ($user) {
                     return [
@@ -54,7 +54,7 @@ class ProjectCollection extends ResourceCollection
                             'name' => optional($user->divisi)->name,
                         ],
                     ];
-                }),
+                }), */
                'tasks' => $project
                     ->tasksDirect()                     // ← pakai ()
                     ->select('tasks.*')                 // samakan kolom

@@ -129,6 +129,10 @@ class ContactController extends Controller
         $query = Company::with('contactType')
                         ->select('id', 'contact_type_id', 'name');
 
+        if ($request->has('contact_type')) {
+            $query->where('contact_type_id', $request->contact_type);
+        }
+
         if ($keyword !== '') {
             // Ada kata kunci → filter nama / ID, tanpa limit
             $query->where(function ($q) use ($keyword) {

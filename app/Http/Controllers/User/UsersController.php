@@ -175,9 +175,11 @@ class UsersController extends Controller
             $user->passwordRecovery = $randomPassword; // Simpan password acak sementara
 
             // Kirim email hanya jika bukan TENAGA_KERJA
-            if ($request->role != Role::KARYAWAN) {
-                Mail::to($user->email)->send(new RegisterMail($user));
-            }
+            // if ($request->role != Role::KARYAWAN) {
+            //     Mail::to($user->email)->send(new RegisterMail($user));
+            // }
+
+            Mail::to($user->email)->send(new RegisterMail($user));
 
             DB::commit();
 

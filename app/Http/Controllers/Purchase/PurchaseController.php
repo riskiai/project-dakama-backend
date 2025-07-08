@@ -33,28 +33,44 @@ use App\Facades\Filters\Purchase\ByUpdated;
 use App\Http\Requests\Purchase\AcceptRequest;
 use App\Http\Requests\Purchase\CreateRequest;
 use App\Http\Requests\Purchase\UpdateRequest;
+use App\Facades\Filters\Purchase\ByPembayaran;
 use App\Facades\Filters\Purchase\ByPurchaseID;
 use App\Http\Requests\Purchase\PaymentRequest;
 use App\Http\Resources\Purchase\PurchaseCollection;
 
 class PurchaseController extends Controller
 {
-    public function getDataProductPurchase()
+    public function getDataProductPurchase(Request $request)
     {
-        // Ambil semua produk + relasi vendor
-        $products = \App\Models\PurchaseProductCompanies::with('company')->get();
+        $keyword = trim($request->input('search', ''));
 
+        $query = PurchaseProductCompanies::with('company')          // relasi vendor
+                    ->select([
+                        'id',
+                        'company_id',
+                        'product_name',
+                        'harga',
+                        'stok',
+                        'subtotal_harga_product',
+                        'ppn',
+                    ]);
+
+        $query->when(
+            $keyword !== '',
+            // Jika ada keyword ⇒ filter nama produk, tanpa limit
+            fn ($q) => $q->where('product_name', 'like', "%{$keyword}%"),
+            // Jika tidak ada keyword ⇒ batasi 5 entri
+            fn ($q) => $q->limit(5)
+        );
+
+        $products = $query->orderBy('product_name')->get();
+
+        // Transformasi (hitung PPN dsb.) — persis seperti fungsi lama
         $data = $products->map(function ($prod) {
-
-            /* hitung dasar (harga × stok) */
             $base = $prod->harga * $prod->stok;
-
-            /* konversi rate: "11" → 0.11, null → 0 */
             $rate = $prod->ppn
                 ? ((float) $prod->ppn > 1 ? (float) $prod->ppn / 100 : (float) $prod->ppn)
                 : 0;
-
-            /* rupiah PPN */
             $ppnAmount = round($base * $rate, 2);
 
             return [
@@ -67,7 +83,7 @@ class PurchaseController extends Controller
                 'harga'                  => $prod->harga,
                 'stok'                   => $prod->stok,
                 'subtotal_harga_product' => $prod->subtotal_harga_product,
-                'ppn' => [
+                'ppn'                    => [
                     'rate'   => $prod->ppn ? (float) $prod->ppn : 0,
                     'amount' => $ppnAmount,
                 ],
@@ -77,9 +93,54 @@ class PurchaseController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    public function indexAll(Request $request)
+    {
+        $keyword = trim($request->input('search', ''));
+
+        /* ───── pipeline untuk filter lain ───── */
+        $purchases = app(Pipeline::class)
+            ->send(Purchase::query())
+            ->through([
+                ByPurchaseID::class,
+                ByTab::class,
+                ByDocType::class,
+                // BySearch di-drop  👈
+            ])
+            ->thenReturn();
+
+        /* ───── pencarian manual ───── */
+        if ($keyword !== '') {
+            $purchases->where(function ($q) use ($keyword) {
+                $q->where('doc_no',     'like', "%{$keyword}%")
+                  ->orWhere('doc_type', 'like', "%{$keyword}%")
+                  ->orWhere('project_id','like', "%{$keyword}%");
+            });
+        }
+
+        /* ───── urutan default/tab ───── */
+        if ($request->has('tab')) {
+            if ($request->tab == Purchase::TAB_SUBMIT) {
+                $purchases->orderBy('date', 'desc');
+            } elseif (in_array($request->tab, [
+                Purchase::TAB_VERIFIED,
+                Purchase::TAB_PAYMENT_REQUEST
+            ])) {
+                $purchases->orderBy('due_date', 'asc');
+            } elseif ($request->tab == Purchase::TAB_PAID) {
+                $purchases->orderBy('updated_at', 'desc');
+            }
+        } else {
+            $purchases->orderBy('date', 'desc');
+        }
+
+        /* ───── limit 5 jika TANPA kata kunci ───── */
+        if ($keyword === '') {
+            $purchases->limit(5);
+        }
+
+        return new PurchaseCollection($purchases->get());
+    }
     
-
-
     public function index(Request $request)
     {
         $query = Purchase::with([
@@ -110,6 +171,7 @@ class PurchaseController extends Controller
                 BySearch::class,
                 ByDocType::class, 
                 ByDueDate::class,
+                ByPembayaran::class,
             ])
             ->thenReturn();
 
@@ -140,54 +202,6 @@ class PurchaseController extends Controller
         return new PurchaseCollection($purchases);
     }
 
-    public function indexAll(Request $request) {
-         $query = Purchase::query();
-
-        // Tambahkan filter berdasarkan tanggal terkini
-        // $query->whereDate('date', Carbon::today());
-
-        // Terapkan filter berdasarkan peran pengguna
-        // if (auth()->user()->role_id == Role::USER) {
-        //     $query->where('user_id', auth()->user()->id);
-        // }
-        
-        $purchases = app(Pipeline::class)
-            ->send($query)
-            ->through([
-                ByDate::class,
-                ByUpdated::class,
-                ByPurchaseID::class,
-                ByTab::class,
-                ByStatus::class,
-                ByVendor::class,
-                ByProject::class,
-                ByTax::class,
-                BySearch::class,
-                ByDocType::class,
-                ByDueDate::class,
-            ])
-            ->thenReturn();
-
-        // kondisi untuk pengurutan berdasarkan tab
-        if ($request->has('tab')) {
-            if ($request->tab == Purchase::TAB_SUBMIT) {
-                $purchases->orderBy('date', 'desc');
-            } elseif (in_array($request->tab, [Purchase::TAB_VERIFIED, Purchase::TAB_PAYMENT_REQUEST])) {
-                $purchases->orderBy('due_date', 'asc');
-            } elseif ($request->tab == Purchase::TAB_PAID) {
-                $purchases->orderBy('updated_at', 'desc');
-            }
-        } else {
-            // Jika tidak ada tab yang dipilih, urutkan berdasarkan date secara descending
-            $purchases->orderBy('date', 'desc');
-        }
-
-        // Ambil daftar pembelian yang sudah diurutkan
-        $purchases = $purchases->get(); 
-
-        return new PurchaseCollection($purchases);
-    }
-
     public function countingPurchase(Request $rq)
     {
         /* 1) Query + filter pipeline */
@@ -207,6 +221,7 @@ class PurchaseController extends Controller
                 BySearch::class,
                 ByDocType::class,
                 ByDueDate::class,
+                ByPembayaran::class,
             ])
             ->thenReturn()
             ->with('taxPph')                       // relasi kini sudah ada
