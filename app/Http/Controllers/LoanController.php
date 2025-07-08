@@ -238,12 +238,12 @@ class LoanController extends Controller
             return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
         }
 
-        if ($request->nominal > $loan->latest) {
-            return MessageDakama::warning("Loan balance {$loan->latest}, can't be processed!");
+        if ($request->nominal > $loan->nominal) {
+            return MessageDakama::warning("Nominal can't be bigger than loan balance {$loan->nominal}, can't be processed!");
         }
 
         if ($request->nominal < 1) {
-            return MessageDakama::warning("Loan balance {$loan->latest}, can't be processed!");
+            return MessageDakama::warning("Nominal can't be less than 1, can't be processed!");
         }
 
         if ($loan->is_settled) {
