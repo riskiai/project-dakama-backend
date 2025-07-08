@@ -251,6 +251,9 @@ class PayrollController extends Controller
             ->when($request->filled('status') && $request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->status);
             })
+            ->when($request->filled('project_id') && $request->has('project_id'), function ($query) use ($request) {
+                $query->where('project_id', $request->project_id);
+            })
             ->when($request->filled('date') && $request->has('date'), function ($query) use ($request) {
                 $query->whereDate('approved_at', $request->date);
             })
