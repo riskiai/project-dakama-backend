@@ -28,7 +28,7 @@ class CreateRequest extends FormRequest
     {
         return [
             'company_id' => 'nullable|exists:companies,id',
-            'user_id' => 'nullable|exists:users,id',      
+            'user_id' => 'nullable|exists:users,id',
             'tasks_id' => 'nullable|exists:tasks,id',
             'name' => 'nullable|string',
             'billing' => 'nullable|numeric',
@@ -36,28 +36,34 @@ class CreateRequest extends FormRequest
             'margin' => 'nullable|numeric',
             'percent' => 'nullable|numeric',
             'status_cost_progres' => 'nullable|string',
-            'attachment_file' => 'nullable|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072', 
+            'attachment_file' => 'nullable|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072',
             'date' => 'nullable|date',
             'request_status_owner' => 'nullable|string',
             'status_bonus_project' => 'nullable|string',
             'harga_type_project' => 'nullable|numeric',
             'type_projects' => 'nullable|in:' . implode(',', [Project::HIK, Project::DWI]),
             'no_dokumen_project' => 'nullable|string',
-                
+
             // Produk dan User ID harus berupa array
             // 'tasks' => 'nullable|array',
             // 'tasks_id.*' => 'nullable|exists:tasks,id|numeric|min:1',
 
-            'tasks_id'   => 'nullable|array',         
+            'tasks_id'   => 'nullable|array',
             'tasks_id.*' => 'nullable|exists:tasks,id',
-        
+
             'user_id' => 'nullable|array',
             'user_id.*' => 'nullable|exists:users,id|numeric|min:1',
+
+            'locations' => 'nullable|array|min:1|max:1',
+            'locations.*.longitude' => 'required|max:50',
+            'locations.*.latitude' => 'required|max:50',
+            'locations.*.radius' => 'required|max:50',
+            'locations.*.name' => 'required|max:50',
 
         ];
     }
 
-        /**
+    /**
      * Menyiapkan data sebelum validasi untuk memastikan array.
      */
     protected function prepareForValidation()

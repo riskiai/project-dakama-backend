@@ -43,7 +43,7 @@ class Project extends Model
     const DEFAULT_STATUS_NO_BONUS = self::BELUM_DIKASIH_BONUS;
     const DEFAULT_STATUS = self::PENDING;
 
-    protected $primaryKey = 'id'; 
+    protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';
     protected $table = 'projects';
@@ -143,12 +143,12 @@ class Project extends Model
         return $this->belongsToMany(Task::class, 'projects_user_tasks', 'project_id', 'tasks_id');
     }
 
-     public function tasksDirect()
+    public function tasksDirect()
     {
         return $this->hasMany(Task::class, 'project_id', 'id');
     }
 
-     public function budgetsDirect()
+    public function budgetsDirect()
     {
         return $this->hasMany(Budget::class, 'project_id', 'id');
     }
@@ -164,4 +164,8 @@ class Project extends Model
         return $this->hasMany(UserProjectAbsen::class, 'project_id', 'id');
     }
 
+    public function locations()
+    {
+        return $this->hasMany(ProjectHasLocation::class, 'project_id', 'id');
+    }
 }

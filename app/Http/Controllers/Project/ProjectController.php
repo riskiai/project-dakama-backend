@@ -25,9 +25,9 @@ class ProjectController extends Controller
     public function index(Request $request)
     {
         $query = Project::query();
-                 
+
         // Eager load untuk mengurangi query N+1
-        $query->with(['company', 'user', 'tasks', 'tenagaKerja']);    
+        $query->with(['company', 'user', 'tasks', 'tenagaKerja']);
 
         // Filter berdasarkan status_bonus_project
         if ($request->has('status_bonus_project')) {
@@ -39,11 +39,11 @@ class ProjectController extends Controller
         if ($request->has('search')) {
             $query->where(function ($query) use ($request) {
                 $query->where('id', 'like', '%' . $request->search . '%')
-                      ->orWhere('name', 'like', '%' . $request->search . '%')
-                      ->orWhere('no_dokumen_project', 'like', '%' . $request->search . '%') // Tambahkan ini
-                      ->orWhereHas('company', function ($query) use ($request) {
-                          $query->where('name', 'like', '%' . $request->search . '%');
-                      });
+                    ->orWhere('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('no_dokumen_project', 'like', '%' . $request->search . '%') // Tambahkan ini
+                    ->orWhereHas('company', function ($query) use ($request) {
+                        $query->where('name', 'like', '%' . $request->search . '%');
+                    });
             });
         }
 
@@ -60,13 +60,13 @@ class ProjectController extends Controller
 
         if ($request->has('no_dokumen_project')) {
             $query->where('no_dokumen_project', 'like', '%' . $request->no_dokumen_project . '%');
-        } 
+        }
 
         if ($request->has('type_projects')) {
-            $typeProjects = is_array($request->type_projects) 
-                ? $request->type_projects 
+            $typeProjects = is_array($request->type_projects)
+                ? $request->type_projects
                 : explode(',', $request->type_projects);
-    
+
             $query->whereIn('type_projects', $typeProjects);
         }
 
@@ -81,16 +81,16 @@ class ProjectController extends Controller
         }
 
         if ($request->has('date')) {
-            $date = str_replace(['[', ']'], '', $request->date); 
-            $date = explode(", ", $date); 
-            
+            $date = str_replace(['[', ']'], '', $request->date);
+            $date = explode(", ", $date);
+
             $query->whereRaw('STR_TO_DATE(date, "%Y-%m-%d") BETWEEN ? AND ?', [$date[0], $date[1]]);
         }
 
         if ($request->has('year')) {
             $year = $request->year;
             $query->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$year]);
-        }    
+        }
 
         // Terapkan filter berdasarkan peran pengguna
         /*  if ($request->has('role_id')) {
@@ -98,30 +98,30 @@ class ProjectController extends Controller
                 $query->whereHas('tenagaKerja', function ($q) use ($roleIds) {
                     $q->whereIn('role_id', $roleIds);
                 });
-            } 
+            }
         */
 
-         // Filter untuk Supervisor
+        // Filter untuk Supervisor
         /*  if (auth()->user()->role_id == Role::SUPERVISOR) {
             $query->whereHas('tenagaKerja', function ($q) {
-                $q->where('user_id', auth()->user()->id); 
+                $q->where('user_id', auth()->user()->id);
             });
-             }   
+             }
         */
-        
-         // Terapkan filter berdasarkan peran pengguna
+
+        // Terapkan filter berdasarkan peran pengguna
         /*  if (auth()->user()->role_id == Role::MARKETING) {
             $query->where(function ($q) {
-                $q->where('user_id', auth()->user()->id) 
+                $q->where('user_id', auth()->user()->id)
                   ->orWhereHas('tenagaKerja', function ($q) {
-                      $q->where('user_id', auth()->user()->id); 
+                      $q->where('user_id', auth()->user()->id);
                   });
             });
         } */
 
-       // Filter berdasarkan tenaga kerja (tukang)
+        // Filter berdasarkan tenaga kerja (tukang)
         /* if ($request->has('tukang')) {
-            $tukangIds = explode(',', $request->tukang); 
+            $tukangIds = explode(',', $request->tukang);
             $query->whereHas('tenagaKerja', function ($query) use ($tukangIds) {
                 $query->whereIn('users.id', $tukangIds);
             });
@@ -137,29 +137,29 @@ class ProjectController extends Controller
 
             } elseif ($workType == 0) {
                 $query->whereHas('manPowers', function ($q) {
-                    $q->where('work_type', 0); 
+                    $q->where('work_type', 0);
                 });
             }
         } */
 
         /*  if ($request->has('marketing_id')) {
                 $query->whereHas('tenagaKerja', function ($q) use ($request) {
-                    $q->where('users.id', $request->marketing_id) 
+                    $q->where('users.id', $request->marketing_id)
                     ->whereHas('role', function ($roleQuery) {
-                        $roleQuery->where('role_id', Role::KARYAWAN); 
+                        $roleQuery->where('role_id', Role::KARYAWAN);
                     });
                 });
-            } 
+            }
         */
 
         /* if ($request->has('supervisor_id')) {
             $query->whereHas('tenagaKerja', function ($q) use ($request) {
-                $q->where('users.id', $request->supervisor_id) 
+                $q->where('users.id', $request->supervisor_id)
                   ->whereHas('role', function ($roleQuery) {
-                      $roleQuery->where('role_id', Role::SUPERVISOR); 
+                      $roleQuery->where('role_id', Role::SUPERVISOR);
                   });
             });
-        }     
+        }
         */
 
         // Filter berdasarkan divisi (name)
@@ -173,21 +173,22 @@ class ProjectController extends Controller
 
         // Urutkan berdasarkan tahun dan increment ID proyek
         $projects = $query->selectRaw('*, CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(id, "-", -2), "-", 1) AS UNSIGNED) as year')
-        ->selectRaw('CAST(SUBSTRING_INDEX(id, "-", -1) AS UNSIGNED) as increment')
-        ->orderBy('year', 'desc')  // Urutkan berdasarkan tahun (PRO-25 vs PRO-24)
-        ->orderBy('increment', 'desc')  // Urutkan berdasarkan increment (001, 002, ...)
-        ->orderBy('updated_at', 'desc') // Jika tahun dan increment sama, urutkan berdasarkan updated_at
-        ->orderBy('created_at', 'desc') 
-        ->paginate($request->per_page);
+            ->selectRaw('CAST(SUBSTRING_INDEX(id, "-", -1) AS UNSIGNED) as increment')
+            ->orderBy('year', 'desc')  // Urutkan berdasarkan tahun (PRO-25 vs PRO-24)
+            ->orderBy('increment', 'desc')  // Urutkan berdasarkan increment (001, 002, ...)
+            ->orderBy('updated_at', 'desc') // Jika tahun dan increment sama, urutkan berdasarkan updated_at
+            ->orderBy('created_at', 'desc')
+            ->paginate($request->per_page);
 
         return new ProjectCollection($projects);
     }
 
-    public function projectAll() {
-       $query = Project::query();
+    public function projectAll()
+    {
+        $query = Project::query();
 
-       // Eager load untuk mengurangi query N+1
-       $query->with(['company', 'user', 'tenagaKerja']);
+        // Eager load untuk mengurangi query N+1
+        $query->with(['company', 'user', 'tenagaKerja']);
 
         // Tambahkan kondisi untuk menyortir data berdasarkan nama proyek
         $query->orderBy('name', 'asc');
@@ -198,12 +199,13 @@ class ProjectController extends Controller
         return new ProjectCollection($projects);
     }
 
-    public function indexAll() {
-        $projects = Project::select('id', 'name')->get(); 
+    public function indexAll()
+    {
+        $projects = Project::select('id', 'name')->get();
         return new ProjectNameCollection($projects);
     }
 
-     public function nameAll(Request $request)
+    public function nameAll(Request $request)
     {
         // 1.  Base query
         $query = Project::query();
@@ -213,23 +215,23 @@ class ProjectController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
-                ->orWhere('name', 'like', "%{$search}%")
-                ->orWhere('no_dokumen_project', 'like', "%{$search}%")
-                ->orWhereHas('company', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('no_dokumen_project', 'like', "%{$search}%")
+                    ->orWhereHas('company', fn($q) => $q->where('name', 'like', "%{$search}%"));
             });
         }
 
-       
+
         if ($request->filled('project')) {
             $query->where('id', $request->project);
         }
-      
-        $projects = $query->select('id', 'name')
-                      ->orderBy('name')
-                      ->when(!$request->filled('search'), fn ($q) => $q->limit(5))   
-                      ->get();
 
-        return new ProjectNameCollection($projects);  
+        $projects = $query->select('id', 'name')
+            ->orderBy('name')
+            ->when(!$request->filled('search'), fn($q) => $q->limit(5))
+            ->get();
+
+        return new ProjectNameCollection($projects);
     }
 
     public function show($id)
@@ -255,7 +257,7 @@ class ProjectController extends Controller
 
             // Terapkan filter untuk role_id
             $query->whereHas('tenagaKerja', function ($q) use ($roleIds) {
-                $q->whereIn('role_id', $roleIds); 
+                $q->whereIn('role_id', $roleIds);
             });
         } */
 
@@ -278,13 +280,13 @@ class ProjectController extends Controller
 
         if ($request->has('no_dokumen_project')) {
             $query->where('no_dokumen_project', 'like', '%' . $request->no_dokumen_project . '%');
-        } 
+        }
 
         if ($request->has('type_projects')) {
-            $typeProjects = is_array($request->type_projects) 
-                ? $request->type_projects 
+            $typeProjects = is_array($request->type_projects)
+                ? $request->type_projects
                 : explode(',', $request->type_projects);
-    
+
             $query->whereIn('type_projects', $typeProjects); // Filter proyek berdasarkan type_projects
         }
 
@@ -302,16 +304,16 @@ class ProjectController extends Controller
         }
 
         if ($request->has('date')) {
-            $date = str_replace(['[', ']'], '', $request->date); 
-            $date = explode(", ", $date); 
-            
+            $date = str_replace(['[', ']'], '', $request->date);
+            $date = explode(", ", $date);
+
             $query->whereRaw('STR_TO_DATE(date, "%Y-%m-%d") BETWEEN ? AND ?', [$date[0], $date[1]]);
         }
 
         if ($request->has('year')) {
             $year = $request->year;
             $query->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$year]);
-        }        
+        }
 
         // Ambil seluruh data tanpa paginasi
         $collection = $query->get();
@@ -326,7 +328,7 @@ class ProjectController extends Controller
         $percent = round($percent, 2) . '%';
 
         $totalProjects = $collection->count();
-        
+
         // $totalHargaType = (float) $query->sum('harga_type_project');
 
         /*  $totalHargaBorongan = SpbProject::where('spbproject_category_id', SpbProject_Category::BORONGAN)
@@ -359,8 +361,9 @@ class ProjectController extends Controller
     }
 
 
-    public function createProject(CreateRequest $request) {
-         DB::beginTransaction(); 
+    public function createProject(CreateRequest $request)
+    {
+        DB::beginTransaction();
 
         try {
             // Temukan perusahaan berdasarkan client_id
@@ -376,7 +379,7 @@ class ProjectController extends Controller
             $year = date('y', strtotime($request->date)); // Ambil tahun dua digit dari input tanggal
 
             // Generate ID dengan mengirimkan tahun ke function generateSequenceNumber
-            $sequenceNumber = Project::generateSequenceNumber($year); 
+            $sequenceNumber = Project::generateSequenceNumber($year);
             $project->id = 'PRO-' . $year . '-' . $sequenceNumber; // Generate ID
 
             // Isi field lainnya
@@ -395,35 +398,42 @@ class ProjectController extends Controller
 
 
             // Simpan file ke disk public
-            $project->file = $request->hasFile('attachment_file') 
-                ? $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public') 
+            $project->file = $request->hasFile('attachment_file')
+                ? $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public')
                 : null;
 
             // Simpan proyek ke database
             $project->save();
 
-             // Ambil produk_id dan user_id dari request
-            $userIds = array_filter($request->input('user_id', []));  
+            // Ambil produk_id dan user_id dari request
+            $userIds = array_filter($request->input('user_id', []));
             $tasksIds = array_filter($request->input('tasks_id', []));
 
-            /* 
+            /*
                 if (auth()->user()->role_id == Role::MARKETING) {
-                    $userIds[] = auth()->user()->id; 
-                } 
+                    $userIds[] = auth()->user()->id;
+                }
             */
 
             // Sinkronisasi user_id di pivot table hanya jika ada user_id yang valid
             if (!empty($userIds)) {
-                $project->tenagaKerja()->syncWithoutDetaching($userIds); 
+                $project->tenagaKerja()->syncWithoutDetaching($userIds);
             }
 
-             if (!empty($tasksIds)) {
+            if (!empty($tasksIds)) {
                 $project->tasks()->syncWithoutDetaching($tasksIds); // Sinkronkan produk ke pivot table
+            }
+
+            if ($request->has('locations')) {
+                $project->locations()->create([
+                    ...$request->locations[0],
+                    "is_default" => true
+                ]);
             }
 
             // Commit transaksi
             DB::commit(); // Commit transaksi
-            return MessageDakama::success("Project created successfully. $project->id");
+            return MessageDakama::success("Project created successfully. $project->id", $project);
         } catch (\Exception $e) {
             // Rollback jika terjadi error
             DB::rollBack();
@@ -531,8 +541,8 @@ class ProjectController extends Controller
             $userIds = $request->input('user_id', []);
 
             // Sinkronkan data produk dan user pada tabel pivot
-            $project->tasks()->sync(array_unique($tasksIds)); 
-            $project->tenagaKerja()->sync(array_unique($userIds)); 
+            $project->tasks()->sync(array_unique($tasksIds));
+            $project->tenagaKerja()->sync(array_unique($userIds));
 
             // Commit transaksi
             DB::commit();
@@ -596,7 +606,8 @@ class ProjectController extends Controller
         }
     }
 
-    public function closed($id) {
+    public function closed($id)
+    {
         DB::beginTransaction();
 
         // Pastikan user yang login memiliki role OWNER
@@ -629,9 +640,10 @@ class ProjectController extends Controller
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
         }
-    } 
+    }
 
-     public function cancel($id) {
+    public function cancel($id)
+    {
         DB::beginTransaction();
 
         if (!auth()->user()->hasRole(Role::OWNER)) {
@@ -657,9 +669,10 @@ class ProjectController extends Controller
             return MessageDakama::error($th->getMessage());
         }
     }
-    
+
     /* Bonus Project */
-    public function bonus($id) {
+    public function bonus($id)
+    {
         DB::beginTransaction();
 
         // Pastikan user yang login memiliki role OWNER
@@ -695,10 +708,10 @@ class ProjectController extends Controller
     }
 
 
-     public function destroy($id)
+    public function destroy($id)
     {
         DB::beginTransaction();
-    
+
         try {
             // Temukan proyek berdasarkan ID, atau akan gagal jika tidak ditemukan
             $project = Project::findOrFail($id);
@@ -706,23 +719,23 @@ class ProjectController extends Controller
             // SpbProject::where('project_id', $id)->update(['project_id' => null]);
 
             \App\Models\Purchase::where('project_id', $project->id)
-            ->update(['project_id' => null]);
-    
+                ->update(['project_id' => null]);
+
             // Hapus hubungan many-to-many terlebih dahulu jika ada
-            $project->tasks()->detach();  
-            $project->tenagaKerja()->detach();  
-    
+            $project->tasks()->detach();
+            $project->tenagaKerja()->detach();
+
             // Hapus file terkait proyek (jika ada)
             if ($project->file) {
                 Storage::delete($project->file);
             }
-    
+
             // Hapus proyek dari database
             $project->delete();
-    
+
             // Commit transaksi
             DB::commit();
-    
+
             return MessageDakama::success("Project $project->name has been deleted successfully.");
         } catch (\Throwable $th) {
             // Rollback jika terjadi error
@@ -766,7 +779,7 @@ class ProjectController extends Controller
                 'deskripsi_termin' => $request->deskripsi_termin_proyek,
                 'type_termin' => $typeTermin,
                 'tanggal_payment' => $request->payment_date_termin_proyek,
-                'file_attachment_pembayaran' => is_string($fileAttachment) ? $fileAttachment : null, 
+                'file_attachment_pembayaran' => is_string($fileAttachment) ? $fileAttachment : null,
             ]);
 
             // **Ambil termin terbaru berdasarkan `created_at` (untuk menangani banyak pembayaran dalam satu hari)**
@@ -791,8 +804,8 @@ class ProjectController extends Controller
                 $project->update([
                     'file_pembayaran_termin' => is_string($latestTermin->file_attachment_pembayaran) ? $latestTermin->file_attachment_pembayaran : null,
                     'deskripsi_termin_proyek' => $latestTermin->deskripsi_termin,
-                    'type_termin_proyek' => json_encode($typeTerminData, JSON_UNESCAPED_UNICODE), 
-                    'harga_termin_proyek' => (float) $totalHargaTermin, 
+                    'type_termin_proyek' => json_encode($typeTerminData, JSON_UNESCAPED_UNICODE),
+                    'harga_termin_proyek' => (float) $totalHargaTermin,
                     'payment_date_termin_proyek' => $latestTermin->tanggal_payment,
                 ]);
             }
@@ -803,7 +816,6 @@ class ProjectController extends Controller
                 'status' => 'SUCCESS',
                 'message' => 'Termin pembayaran berhasil ditambahkan!',
             ], 200);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
@@ -813,7 +825,7 @@ class ProjectController extends Controller
         }
     }
 
-     public function updateTermin(UpdatePaymentTerminRequest $request, $id)
+    public function updateTermin(UpdatePaymentTerminRequest $request, $id)
     {
         DB::beginTransaction();
 
@@ -912,7 +924,6 @@ class ProjectController extends Controller
                 'status' => 'SUCCESS',
                 'message' => 'Termin updated successfully!',
             ]);
-
         } catch (\Throwable $th) {
             DB::rollBack();
 
@@ -1019,7 +1030,6 @@ class ProjectController extends Controller
                 'message' => 'Selected termin(s) deleted successfully!',
                 'remaining_total_termin' => $totalHargaTermin,
             ]);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([

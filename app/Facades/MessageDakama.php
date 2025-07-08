@@ -15,12 +15,19 @@ class MessageDakama extends Response
         return response()->json($data, $statusCode);
     }
 
-    public static function success($message)
+    public static function success($message, $data = null)
     {
+        $response = [];
+
+        if ($data) {
+            $response['data'] = $data;
+        }
+
         return response()->json([
             'status' => self::SUCCESS,
             'status_code' => self::HTTP_OK,
             'message' => $message,
+            ...$response
         ], self::HTTP_OK);
     }
 
