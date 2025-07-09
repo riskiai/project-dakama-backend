@@ -48,6 +48,12 @@ class TaskController extends Controller
             $query->where('type', $request->type);
         }
 
+         if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+            // jika ingin mendukung multiple id (comma-separated), gunakan:
+            // $query->whereIn('project_id', explode(',', $request->project_id));
+        }
+
          if ($request->filled('search')) {
             $search = $request->search;
             $query->where('nama_task', 'like', "%{$search}%");
