@@ -28,6 +28,11 @@ class MutationController extends Controller
             $query->where('mutable_id', $request->loan_id);
         });
 
+        $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
+            $query->where('user_id', $request->user_id);
+        });
+
+
         $query->orderBy('id', 'desc');
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {

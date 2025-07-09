@@ -46,8 +46,10 @@ class OvertimeController extends Controller
             $query->where('task_id', $request->task_id);
         });
 
-        $query->when($request->has('date') && $request->filled('date'), function ($query) use ($request) {
-            $query->whereDate('request_date', $request->date);
+        $query->when($request->has('start_date') && $request->filled('start_date') &&
+            $request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
+
+            $query->whereBetween('request_date', [$request->start_date, $request->end_date]);
         });
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
@@ -67,11 +69,12 @@ class OvertimeController extends Controller
         $user = Auth::user();
 
         $validator = Validator::make($request->all(), [
-            'project_id' => 'required|exists:projects,id',
-            'task_id' => 'required|exists:tasks,id',
-            'duration' => 'required|numeric|integer',
-            'request_date' => 'required|date_format:Y-m-d H:i:s',
-            'reason' => 'max:255',
+            'project_id'    => 'required|exists:projects,id',
+            'task_id'       => 'required|exists:tasks,id',
+            'duration'      => 'required|numeric|integer',
+            'request_date'  => 'required|date_format:Y-m-d H:i:s',
+            'reason'        => 'max:255',
+            'pic_id'        => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -98,7 +101,9 @@ class OvertimeController extends Controller
                 'duration' => $request->duration,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
-                'user_id' => $user->id
+                'user_id' => $user->id,
+                'pic_id' => $request->pic_id,
+                'salary_overtime' => 0
             ]);
 
             DB::commit();
@@ -176,6 +181,7 @@ class OvertimeController extends Controller
 
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected,cancelled',
+            'reason_approval' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -196,7 +202,8 @@ class OvertimeController extends Controller
 
         try {
             $formData = [
-                'status' => $request->status
+                'status' => $request->status,
+                'reason_approval' => $request->reason_approval
             ];
 
             if ($request->status == Overtime::STATUS_APPROVED) {

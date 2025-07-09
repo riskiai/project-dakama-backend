@@ -44,16 +44,26 @@ class AttendanceController extends Controller
             $query->where('task_id', $request->task_id);
         });
 
-        $query->when($request->has('date') && $request->filled('date'), function ($query) use ($request) {
-            $query->whereDate('start_time', $request->date);
-        });
-
         $query->when($request->has('status') && $request->filled('status'), function ($query) use ($request) {
             $query->where('status', $request->status);
         });
 
         $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
             $query->where('user_id', $request->user_id);
+        });
+
+        $query->when($request->has('search') && $request->filled('search'), function ($query) use ($request) {
+            $query->whereHas('user', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            });
+        });
+
+        $query->when($request->has('start_date') && $request->filled('start_date'), function ($query) use ($request) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        });
+
+        $query->when($request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
+            $query->whereDate('created_at', '<=', $request->end_date);
         });
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {

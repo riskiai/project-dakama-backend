@@ -47,6 +47,11 @@ class PayrollController extends Controller
             $query->where('approved_by', $request->approved_by);
         }
 
+        $query->when($request->has('start_date') && $request->filled('start_date') &&
+            $request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
+            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $payrolls = $query->paginate($request->per_page);
         } else {
@@ -69,7 +74,8 @@ class PayrollController extends Controller
             'notes'         => 'nullable|string',
             'is_all_loan'   => 'required|boolean',
             'loan'          => 'required_if:is_all_loan,false|nullable|integer',
-            'notes'         => 'max:255'
+            'notes'         => 'max:255',
+            'pic_id'        => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -121,7 +127,7 @@ class PayrollController extends Controller
         try {
             Payroll::create([
                 "user_id" => $userTarget->id,
-                "pic_id" => $user->id,
+                "pic_id" => $request->pic_id,
                 "total_attendance" => $totalWorkingDay,
                 "total_daily_salary" => $totalSalaryWorking,
                 "total_overtime" => $totalSalaryOvertime,
@@ -163,7 +169,8 @@ class PayrollController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:approved,rejected,cancelled'
+            'status' => 'required|in:approved,rejected,cancelled',
+            'reason_approval' => 'nullable'
         ]);
 
         if ($validator->fails()) {
@@ -183,11 +190,20 @@ class PayrollController extends Controller
         }
 
         $formData = [
-            "status" => $request->status
+            "status" => $request->status,
+            'reason_approval' => $request->reason_approval,
         ];
+
+        $dateTime = explode(",", trim($payroll->datetime));
+
+        $dateTime = array_map('trim', $dateTime);
 
         try {
             if ($request->status == Payroll::STATUS_APPROVED) {
+                Attendance::whereBetween('created_at', $dateTime)->where('is_settled', 0)->update([
+                    'is_settled' => 1
+                ]);
+
                 $formData['approved_at'] = now();
                 $formData['approved_by'] = $user->id;
 
@@ -250,9 +266,6 @@ class PayrollController extends Controller
             })
             ->when($request->filled('status') && $request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->status);
-            })
-            ->when($request->filled('project_id') && $request->has('project_id'), function ($query) use ($request) {
-                $query->where('project_id', $request->project_id);
             })
             ->when($request->filled('date') && $request->has('date'), function ($query) use ($request) {
                 $query->whereDate('approved_at', $request->date);

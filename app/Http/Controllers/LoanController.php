@@ -42,6 +42,17 @@ class LoanController extends Controller
             $query->where('user_id', $request->user_id);
         });
 
+        // $query->when($request->has('user_id') && $request->filled('user_id'), function ($query) use ($request) {
+        //     $query->whereHas('mutations', function ($query) use ($request) {
+        //         $query->where('user_id', $request->user_id);
+        //     });
+        // });
+
+        $query->when($request->has('start_date') && $request->filled('start_date') &&
+            $request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
+            $query->whereBetween('request_date', [$request->start_date, $request->end_date]);
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $loans = $query->paginate($request->per_page);
         } else {
@@ -61,6 +72,7 @@ class LoanController extends Controller
             'nominal' => 'required|numeric|integer',
             'request_date' => 'required|date_format:Y-m-d',
             'reason' => 'required|max:255',
+            'pic_id' => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -78,6 +90,7 @@ class LoanController extends Controller
                 'request_date' => $request->request_date,
                 'reason' => $request->reason,
                 'latest' => $request->nominal,
+                'pic_id' => $request->pic_id
             ]);
 
             DB::commit();
@@ -159,6 +172,8 @@ class LoanController extends Controller
 
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected,cancelled',
+            'reason_approval' => 'nullable',
+            'pic_id' => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -173,11 +188,17 @@ class LoanController extends Controller
             return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
         }
 
+        if (in_array($loan->status, [EmployeeLoan::STATUS_APPROVED, EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_CANCELLED])) {
+            return MessageDakama::warning("Overtime has been {$loan->status}, can't be processed!");
+        }
+
         $loan->load(['pic', 'user']);
 
         try {
             $formData = [
-                'status' => $request->status
+                'status' => $request->status,
+                'reason_approval' => $request->reason_approval,
+                'pic_id' => $request->pic_id
             ];
 
             if ($request->status == EmployeeLoan::STATUS_APPROVED) {
@@ -193,8 +214,6 @@ class LoanController extends Controller
                 $loan->user()->update([
                     'loan' => $loan->user->loan + $loan->nominal
                 ]);
-
-                $formData['pic_id'] = $user->id;
             }
 
             $loan->update($formData);
