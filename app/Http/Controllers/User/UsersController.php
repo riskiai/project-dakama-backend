@@ -84,6 +84,20 @@ class UsersController extends Controller
     {
         $query = User::query();
 
+         if ($request->has('divisi_name')) {
+            $query->whereHas('divisi', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->divisi_name . '%');
+            });
+        }
+
+        if ($request->has('role_id')) {
+            // Ambil array role_id dari request, pastikan dalam bentuk array
+            $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
+
+            // Terapkan filter berdasarkan role_id
+            $query->whereIn('role_id', $roleIds);
+        }
+
         $users = $query->get();
 
         return new UsersCollection($users);

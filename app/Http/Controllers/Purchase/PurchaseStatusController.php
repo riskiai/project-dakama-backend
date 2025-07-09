@@ -10,7 +10,7 @@ use App\Http\Controllers\Controller;
 
 class PurchaseStatusController extends Controller
 {
-    public function index()
+   /*  public function index()
     {
         $purchaseStatus = PurchaseStatus::whereNotIn('id', [PurchaseStatus::VERIFIED])->get();
 
@@ -18,6 +18,18 @@ class PurchaseStatusController extends Controller
             'status' => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
             'data' => $purchaseStatus
+        ]);
+    } */
+
+    public function index()
+    {
+        // ambil semua status (atau tambahkan filter lain sesuai kebutuhan)
+        $purchaseStatus = PurchaseStatus::all();
+
+        return MessageDakama::render([
+            'status'      => MessageDakama::SUCCESS,
+            'status_code' => MessageDakama::HTTP_OK,
+            'data'        => $purchaseStatus,
         ]);
     }
 

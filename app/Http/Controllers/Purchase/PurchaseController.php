@@ -346,45 +346,43 @@ class PurchaseController extends Controller
 
     public function createPurchase(CreateRequest $request)
     {
-        DB::beginTransaction();
-        try {
-            /* ── 1. HEADER ───────────────────────────── */
-            $purchaseMax      = Purchase::where('purchase_category_id', $request->purchase_category_id)->max('doc_no');
-            $purchaseCategory = PurchaseCategory::find($request->purchase_category_id);
+        return DB::transaction(function () use ($request) {
+            /* ── 1. HEADER ─────────────────────────────── */
+            $category   = PurchaseCategory::findOrFail($request->purchase_category_id);
 
-            $headerData = $request->except(['products', 'products_id', 'attachment_file']);
-            $headerData = array_merge($headerData, [
-                'doc_no'             => $this->generateDocNo($purchaseMax, $purchaseCategory),
-                'doc_type'           => Str::upper($purchaseCategory->name),
+            $headerData = $request->except(['products', 'products_id', 'attachment_file']) + [
+                'doc_no'             => $this->generateDocNo($category),
+                'doc_type'           => Str::upper($category->name),
                 'purchase_status_id' => PurchaseStatus::AWAITING,
                 'user_id'            => auth()->id(),
                 'sub_total_purchase' => 0,
-            ]);
+            ];
 
             $purchase = Purchase::create($headerData);
 
-            /* ── 2. DETAIL PRODUK  ───────────────────── */
+            /* ── 2. DETAIL PRODUK ──────────────────────── */
             $grandTotal = 0;
 
-            /* (A) Input detail baru via products[0][…] */
+            // (A) produk baru
             if ($request->filled('products')) {
                 $rows = is_string($request->products)
-                        ? json_decode($request->products, true, 512, JSON_THROW_ON_ERROR)
-                        : $request->products;
+                    ? json_decode($request->products, true, 512, JSON_THROW_ON_ERROR)
+                    : $request->products;
 
                 foreach ($rows as $row) {
-                    $prod = $purchase->productCompanies()->create($row);
+                    $prod       = $purchase->productCompanies()->create($row);
                     $grandTotal += $prod->subtotal_harga_product;
                 }
             }
 
-            /* (B) Salin produk lama via products_id[] */
+            // (B) salin produk template
             if ($request->filled('products_id')) {
                 $templates = PurchaseProductCompanies::whereIn('id', $request->products_id)->get();
 
                 foreach ($templates as $tpl) {
                     $new        = $tpl->replicate(['id', 'doc_no']);
                     $new->doc_no = $purchase->doc_no;
+
                     $purchase->productCompanies()->save($new);
                     $grandTotal += $new->subtotal_harga_product;
                 }
@@ -392,49 +390,40 @@ class PurchaseController extends Controller
 
             $purchase->update(['sub_total_purchase' => $grandTotal]);
 
-            /* ── 3. LAMPIRAN ─────────────────────────── */
+            /* ── 3. LAMPIRAN ───────────────────────────── */
             if ($request->hasFile('attachment_file')) {
                 foreach ($request->file('attachment_file') as $idx => $file) {
                     $this->saveDocument($purchase, $file, $idx + 1);
                 }
             }
 
-            DB::commit();
             return MessageDakama::success("doc no {$purchase->doc_no} has been created");
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return MessageDakama::error($e->getMessage());
-        }
+        });
     }
 
-
-    protected function generateDocNo($maxPurchase, $purchaseCategory)
+    /* ───────────────────────────────────────────────────────── */
+    /** Generate nomor dokumen unik, aman dari duplikasi. */
+    protected function generateDocNo(PurchaseCategory|int $purchaseCategory): string
     {
-        // Jika $purchaseCategory adalah ID atau string, cari objeknya di database
-        if (is_numeric($purchaseCategory)) {
-            $purchaseCategory = PurchaseCategory::find($purchaseCategory);
+        // pastikan berupa model
+        if (! $purchaseCategory instanceof PurchaseCategory) {
+            $purchaseCategory = PurchaseCategory::findOrFail($purchaseCategory);
         }
 
-        // Pastikan $purchaseCategory adalah objek dan memiliki properti 'short'
-        if (!$purchaseCategory || !isset($purchaseCategory->short)) {
-            throw new \Exception("Kategori pembelian tidak valid atau tidak ditemukan.");
-        }
+        $prefix = $purchaseCategory->short;          // mis. "INV", "FCA", dll.
 
-        // Ambil bagian numerik terakhir dari doc_no
-        $numericPart = (int) substr($maxPurchase, strpos($maxPurchase, '-') + 1);
+        // doc_no terbesar dengan prefix tsb (termasuk soft-deleted) + lock
+        $lastDocNo = Purchase::withTrashed()
+            ->where('doc_no', 'like', "{$prefix}-%")
+            ->orderByRaw("CAST(SUBSTRING_INDEX(doc_no, '-', -1) AS UNSIGNED) DESC")
+            ->lockForUpdate()
+            ->value('doc_no');                       // hanya 1 baris
 
-        do {
-            // Tambahkan 1 pada bagian numerik dan format menjadi 4 digit
-            $nextNumber = sprintf('%04d', $numericPart + 1);
-            $docNo = "{$purchaseCategory->short}-$nextNumber";
+        $nextNumber = $lastDocNo
+            ? ((int) Str::afterLast($lastDocNo, '-') + 1)
+            : 1;
 
-            // Periksa apakah doc_no ini sudah ada di database
-            $exists = Purchase::where('doc_no', $docNo)->exists();
-
-            $numericPart++;
-        } while ($exists); // Ulangi hingga menemukan doc_no yang belum ada
-
-        return $docNo;
+        return sprintf('%s-%04d', $prefix, $nextNumber);
     }
 
     protected function saveDocument($purchase, $file, $iteration)
