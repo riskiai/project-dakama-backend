@@ -405,24 +405,25 @@ class PurchaseController extends Controller
     /** Generate nomor dokumen unik, aman dari duplikasi. */
     protected function generateDocNo(PurchaseCategory|int $purchaseCategory): string
     {
-        // Pastikan model
+        // Pastikan objek model
         if (! $purchaseCategory instanceof PurchaseCategory) {
             $purchaseCategory = PurchaseCategory::findOrFail($purchaseCategory);
         }
 
-        // Ambil doc_no terbesar (termasuk soft-deleted) + kunci baris
-        $lastDocNo = Purchase::withTrashed()
-            ->where('purchase_category_id', $purchaseCategory->id)
-            ->orderByRaw("CAST(SUBSTRING_INDEX(doc_no, '-', -1) AS UNSIGNED) DESC")
-            ->lockForUpdate()
-            ->value('doc_no');
+        $prefix = $purchaseCategory->short;               // contoh: "INV"
 
+        // Cari doc_no terbesar dengan prefix tsb, termasuk soft-deleted
+        $lastDocNo = Purchase::withTrashed()
+            ->where('doc_no', 'like', $prefix . '-%')      // filter berdasar prefix
+            ->orderByRaw('CAST(SUBSTRING_INDEX(doc_no, \"-\", -1) AS UNSIGNED) DESC')
+            ->lockForUpdate()                              // cegah race condition
+            ->value('doc_no');                             // ambil satu baris teratas
 
         $nextNumber = $lastDocNo
-            ? ((int) Str::afterLast($lastDocNo, '-') + 1)
+            ? ( (int) Str::afterLast($lastDocNo, '-') + 1 )
             : 1;
 
-        return sprintf('%s-%04d', $purchaseCategory->short, $nextNumber);
+        return sprintf('%s-%04d', $prefix, $nextNumber);   // hasil: INV-0002 dst.
     }
 
     protected function saveDocument($purchase, $file, $iteration)
