@@ -41,6 +41,11 @@ class Attendance extends Model
         'is_settled',
     ];
 
+    protected $casts = [
+        "start_time" => "timestamp",
+        "end_time" => "timestamp",
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

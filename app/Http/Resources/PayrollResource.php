@@ -17,9 +17,9 @@ class PayrollResource extends JsonResource
         return [
             "id" => $this->id,
             "user_id" => $this->user_id,
-            "user_name" => $this->user->name,
+            "user_name" => $this->user?->name,
             "pic_id" => $this->pic_id,
-            "pic_name" => $this->pic->name,
+            "pic_name" => $this->pic?->name,
             "approved_by" => $this->approved_by,
             "approved_name" => $this->approved?->name,
             "total_attendance" => $this->total_attendance,

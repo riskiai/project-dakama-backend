@@ -20,6 +20,8 @@ class LoanResource extends JsonResource
             "id" => $this->id,
             "created_by" => $this->user->name,
             "approval_by" => $this->pic->name ?? "-",
+            "pic_id" => $this->pic_id,
+            "pic_name" => $this->pic->name ?? "-",
             "request_date" => $this->request_date,
             "nominal" => $this->nominal,
             "latest" => $this->latest,

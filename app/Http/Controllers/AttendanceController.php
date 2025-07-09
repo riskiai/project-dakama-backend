@@ -194,7 +194,7 @@ class AttendanceController extends Controller
                     'location_lat_in' => $request->location_lat_in,
                     'location_long_in' => $request->location_long_in,
                     'user_id' => $user->id,
-                    'duration' => $projectAbsen->duration,
+                    'duration' => $operationalHour->duration,
                     'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
                     'status' => Attendance::ATTENDANCE_IN,
                     'daily_salary' => $user->salary->daily_salary,

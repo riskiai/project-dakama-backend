@@ -20,6 +20,7 @@ class Overtime extends Model
         'reason',
         'status',
         'salary_overtime',
+        'pic_id'
     ];
 
     public function user()
@@ -35,5 +36,10 @@ class Overtime extends Model
     public function task()
     {
         return $this->belongsTo(Task::class);
+    }
+
+    public function pic()
+    {
+        return $this->belongsTo(User::class, 'pic_id');
     }
 }
