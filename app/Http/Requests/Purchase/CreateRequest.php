@@ -1,83 +1,94 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests\Purchase;
 
 use App\Facades\MessageDakama;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Validate payload for creating a new Purchase document.
+ *
+ * – Products dapat dikirim sebagai array objek baru (`products`) **atau**
+ *   sebagai id template lama (`products_id`).
+ * – Lampiran bersifat opsional.
+ *
+ * Custom `failedValidation()` dipertahankan agar response konsisten
+ * dengan format API Dakama (status, status_code, message).
+ */
 class CreateRequest extends FormRequest
 {
-
     public function authorize(): bool
     {
+        // Akses endpoint ini sudah dijaga oleh Sanctum/JWT middleware.
         return true;
     }
 
     public function rules(): array
     {
-        $rules = [
-            'purchase_id'          => 'required|in:1,2',
-            'purchase_category_id' => 'required|exists:purchase_category,id',
-            'date'                 => 'required|date',
-            'due_date'             => 'required|date|after_or_equal:date',
+        return [
+            // ——— Header fields ———————————————————————————
+            'purchase_id'          => ['required', Rule::in([1, 2])],
+            // NB: tabel di DB bernama `purchase_category` (singular)
+            'purchase_category_id' => ['required', 'exists:purchase_category,id'],
+            'date'                 => ['required', 'date'],
+            'due_date'             => ['required', 'date', 'after_or_equal:date'],
+            'description'          => ['nullable', 'string'],
+            'remarks'              => ['nullable', 'string', 'max:500'],
+            'project_id'           => ['required', 'exists:projects,id'],
 
-            'description'          => 'nullable|string',
-            'remarks'              => 'nullable|string|max:500',
+            // ——— New product rows —————————————————————————
+            'products'                     => ['required_without:products_id', 'array', 'min:1'],
+            'products.*.company_id'        => ['required_without:products_id', 'exists:companies,id'],
+            'products.*.product_name'      => ['required_without:products_id', 'string', 'max:255'],
+            'products.*.harga'             => ['required_without:products_id', 'numeric', 'min:0'],
+            'products.*.stok'              => ['required_without:products_id', 'integer', 'min:1'],
+            'products.*.ppn'               => ['nullable', 'numeric', 'min:0', 'max:100'],
 
-            'project_id' => 'required|exists:projects,id',
+            // ——— Clone from template rows ——————————————————
+            'products_id'                  => ['required_without:products', 'array', 'min:1'],
+            'products_id.*'                => ['exists:purchase_products_companies,id'],
 
-            // ── array produk ──
-            // 'products'                     => 'required|array|min:1',
-            // 'products.*.company_id'        => 'required|exists:companies,id',
-            // 'products.*.product_name'      => 'required|string|max:255',
-            // 'products.*.harga'             => 'required|numeric|min:0',
-            // 'products.*.stok'              => 'required|integer|min:1',
-            // 'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
+            // ——— Attachments ————————————————————————————
+            'attachment_file'              => ['nullable', 'array'],
+            'attachment_file.*'            => ['file', 'mimes:pdf,png,jpg,jpeg,xlsx,xls,heic', 'max:3072'],
         ];
-
-        $rules['products']                     = 'required_without:products_id|array|min:1';
-        $rules['products.*.company_id']        = 'required_without:products_id|exists:companies,id';
-        $rules['products.*.product_name']      = 'required_without:products_id|string|max:255';
-        $rules['products.*.harga']             = 'required_without:products_id|numeric|min:0';
-        $rules['products.*.stok']              = 'required_without:products_id|integer|min:1';
-        $rules['products.*.ppn']               = 'nullable|numeric|min:0|max:100';
-
-        $rules['products_id']                  = 'required_without:products|array|min:1';
-        $rules['products_id.*']                = 'exists:purchase_products_companies,id';
-
-        if ($this->hasFile('attachment_file')) {
-            $rules['attachment_file']      = 'array';
-            $rules['attachment_file.*']    = 'nullable|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072';
-        }
-
-        // Hanya untuk Event
-        // if ($this->purchase_id == 1) {
-        //     $rules['project_id'] = 'required|exists:projects,id';
-        // }
-
-        return $rules;
     }
 
-
-    public function attributes()
+    public function attributes(): array
     {
         return [
-            'purchase_id' => 'purchase type',
+            'purchase_id'          => 'purchase type',
             'purchase_category_id' => 'category purchase',
-            'client_id' => 'client',
-            'project_id' => 'project',
+            'project_id'           => 'project',
+            'products'             => 'products',
+            'products_id'          => 'template products',
+            'attachment_file'      => 'attachment',
         ];
     }
 
-    protected function failedValidation(Validator $validator)
+    protected function prepareForValidation(): void
+    {
+        // Jika frontend mengirim "products" sebagai JSON string, decode di sini.
+        if ($this->filled('products') && is_string($this->products)) {
+            $decoded = json_decode($this->products, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $this->merge(['products' => $decoded]);
+            }
+        }
+    }
+
+    protected function failedValidation(Validator $validator): void
     {
         $response = new JsonResponse([
-            'status' => MessageDakama::WARNING,
+            'status'      => MessageDakama::WARNING,
             'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
-            'message' => $validator->errors()
+            'message'     => $validator->errors(),
         ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
 
         throw new ValidationException($validator, $response);
