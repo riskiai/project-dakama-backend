@@ -408,33 +408,28 @@ class PurchaseController extends Controller
     }
 
 
-    protected function generateDocNo($maxPurchase, $purchaseCategory)
+    protected function generateDocNo($purchaseCategory): string
     {
-        // Jika $purchaseCategory adalah ID atau string, cari objeknya di database
-        if (is_numeric($purchaseCategory)) {
-            $purchaseCategory = PurchaseCategory::find($purchaseCategory);
+        // ── Pastikan kita punya objek model ─────────────────────────
+        if (! $purchaseCategory instanceof PurchaseCategory) {
+            $purchaseCategory = PurchaseCategory::findOrFail($purchaseCategory);
         }
 
-        // Pastikan $purchaseCategory adalah objek dan memiliki properti 'short'
-        if (!$purchaseCategory || !isset($purchaseCategory->short)) {
-            throw new \Exception("Kategori pembelian tidak valid atau tidak ditemukan.");
+        // ── Ambil doc_no terbesar (termasuk yang soft-deleted) ─────
+        $maxDocNo = Purchase::withTrashed()
+            ->where('purchase_category_id', $purchaseCategory->id)
+            ->lockForUpdate()
+            ->max('doc_no');
+
+        // ── Jika belum ada data sama sekali ─────────────────────────
+        if (! $maxDocNo) {
+            return sprintf('%s-%04d', $purchaseCategory->short, 1);
         }
 
-        // Ambil bagian numerik terakhir dari doc_no
-        $numericPart = (int) substr($maxPurchase, strpos($maxPurchase, '-') + 1);
+        // ── Ekstrak urutan numerik terakhir, lalu +1 ────────────────
+        $lastNumber = (int) Str::afterLast($maxDocNo, '-');
 
-        do {
-            // Tambahkan 1 pada bagian numerik dan format menjadi 4 digit
-            $nextNumber = sprintf('%04d', $numericPart + 1);
-            $docNo = "{$purchaseCategory->short}-$nextNumber";
-
-            // Periksa apakah doc_no ini sudah ada di database
-            $exists = Purchase::where('doc_no', $docNo)->exists();
-
-            $numericPart++;
-        } while ($exists); // Ulangi hingga menemukan doc_no yang belum ada
-
-        return $docNo;
+        return sprintf('%s-%04d', $purchaseCategory->short, $lastNumber + 1);
     }
 
     protected function saveDocument($purchase, $file, $iteration)
