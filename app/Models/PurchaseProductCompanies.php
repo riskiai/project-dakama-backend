@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class PurchaseProductCompanies extends Model
 {
@@ -22,7 +24,11 @@ class PurchaseProductCompanies extends Model
         'ppn',
     ];
 
-    /** jika ingin tetap diperlakukan numerik di kode */
+    /**
+     * Gunakan float cast karena nilai uang sudah dibulatkan ke 2 desimal.
+     * Jika Anda ingin presisi absolut, pertimbangkan DECIMAL di DB
+     *   + menyimpan sebagai string & Money library.
+     */
     protected $casts = [
         'harga'                  => 'float',
         'stok'                   => 'integer',
@@ -30,7 +36,7 @@ class PurchaseProductCompanies extends Model
         'ppn'                    => 'string',
     ];
 
-      protected static function booted(): void
+    protected static function booted(): void
     {
         static::creating(fn ($m) => $m->subtotal_harga_product = $m->calcSubtotal());
         static::updating(fn ($m) => $m->subtotal_harga_product = $m->calcSubtotal());
@@ -40,20 +46,23 @@ class PurchaseProductCompanies extends Model
 
     /**
      * Hitung subtotal = (harga × stok) + PPN.
+     * Menggunakan aritmatika float + round(2) agar tidak perlu ekstensi BCMath.
      */
     protected function calcSubtotal(): float
     {
-        // harga * stok
-        $base = bcmul($this->harga ?? 0, $this->stok ?? 0, 2);
+        $price  = (float) ($this->harga ?? 0);
+        $qty    = (int)   ($this->stok  ?? 0);
+
+        // harga * stok dengan pembulatan 2 desimal
+        $base = round($price * $qty, 2);
 
         // konversi ppn varchar → float rate (0–1)
         $rate = $this->ppnRate();
 
         // PPN amount = base * rate
-        $ppnAmount = bcmul($base, $rate, 2);
+        $ppnAmount = round($base * $rate, 2);
 
-        // subtotal = base + ppn
-        return bcadd($base, $ppnAmount, 2);
+        return round($base + $ppnAmount, 2);
     }
 
     /**
@@ -72,22 +81,13 @@ class PurchaseProductCompanies extends Model
         $clean = str_replace('%', '', trim($this->ppn));
 
         // konversi ke float
-        $rate = floatval($clean);
+        $rate = (float) $clean;
 
         // jika >1, artinya masih persen (11 ⇒ 0.11)
         return $rate > 1 ? $rate / 100 : $rate;
     }
 
-    /* protected static function booted(): void
-    {
-        static::creating(function ($m) {
-            $m->subtotal_harga_product = bcmul($m->harga, $m->stok, 2);
-        });
-
-        static::updating(function ($m) {
-            $m->subtotal_harga_product = bcmul($m->harga, $m->stok, 2);
-        });
-    } */
+    /* ──────────────── RELATIONS ──────────────── */
 
     public function purchase()
     {
