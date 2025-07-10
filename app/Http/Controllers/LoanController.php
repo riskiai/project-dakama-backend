@@ -173,7 +173,6 @@ class LoanController extends Controller
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected,cancelled',
             'reason_approval' => 'nullable',
-            'pic_id' => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -198,7 +197,6 @@ class LoanController extends Controller
             $formData = [
                 'status' => $request->status,
                 'reason_approval' => $request->reason_approval,
-                'pic_id' => $request->pic_id
             ];
 
             if ($request->status == EmployeeLoan::STATUS_APPROVED) {
