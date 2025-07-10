@@ -27,6 +27,7 @@ class LoanResource extends JsonResource
             "latest" => $this->latest,
             "reason" => $this->reason,
             "status" => $this->status,
+            "reason_approval" => $this->reason_approval,
             "is_settled" => $this->is_settled,
             "approve_at" => $this->updated_at,
             "created_at" => $this->created_at,

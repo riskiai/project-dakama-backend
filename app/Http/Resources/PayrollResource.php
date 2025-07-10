@@ -29,6 +29,7 @@ class PayrollResource extends JsonResource
             "total_loan" => $this->total_loan,
             "datetime" => $this->datetime,
             "notes" => $this->notes,
+            "reason_approval" => $this->reason_approval,
             "status" => $this->status,
             "approved_at" => $this->approved_at,
             "created_at" => $this->created_at,
