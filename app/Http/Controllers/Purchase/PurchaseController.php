@@ -97,23 +97,29 @@ class PurchaseController extends Controller
     {
         $keyword = trim($request->input('search', ''));
 
-        /* ───── pipeline untuk filter lain ───── */
+        /* ── start query + batasi milik sendiri kalau perlu ── */
+        $base = Purchase::query();
+
+        if (in_array(auth()->user()->role_id, [Role::KARYAWAN, Role::SUPERVISOR])) {
+            $base->where('user_id', auth()->id());
+        }
+
+        /* ── pipeline filter lain ── */
         $purchases = app(Pipeline::class)
-            ->send(Purchase::query())
+            ->send($base)
             ->through([
                 ByPurchaseID::class,
                 ByTab::class,
                 ByDocType::class,
-                // BySearch di-drop  👈
             ])
             ->thenReturn();
 
-        /* ───── pencarian manual ───── */
+        /* ── pencarian manual & urutan (kode Anda tetap) ── */
         if ($keyword !== '') {
             $purchases->where(function ($q) use ($keyword) {
-                $q->where('doc_no',     'like', "%{$keyword}%")
-                  ->orWhere('doc_type', 'like', "%{$keyword}%")
-                  ->orWhere('project_id','like', "%{$keyword}%");
+                $q->where('doc_no',      'like', "%{$keyword}%")
+                ->orWhere('doc_type',  'like', "%{$keyword}%")
+                ->orWhere('project_id','like', "%{$keyword}%");
             });
         }
 
