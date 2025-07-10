@@ -5,7 +5,10 @@ namespace App\Http\Resources\Project;
 use Carbon\Carbon;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Payroll;
 use App\Models\Project;
+use App\Models\Purchase;
+use App\Models\Attendance;
 use App\Models\SpbProject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -100,7 +103,7 @@ class ProjectCollection extends ResourceCollection
                 'cost_estimate' => $project->cost_estimate,
                 'margin' => $project->margin,
                 'percent' => $this->formatPercent($project->percent),
-                // 'cost_progress_project' => $this->costProgress($project),
+                'cost_progress_project' => $this->costProgress($project),
                 'file_attachment' => [
                     'name' => $project->file ? date('Y', strtotime($project->created_at)) . '/' . $project->id . '.' . pathinfo($project->file, PATHINFO_EXTENSION) : null,
                     'link' => $project->file ? asset("storage/$project->file") : null,
@@ -279,74 +282,58 @@ class ProjectCollection extends ResourceCollection
         return $decoded ?? ["id" => null, "name" => "Unknown"];
     }
 
-    // protected function costProgress($project)
-    // {
-    //     $status = Project::STATUS_OPEN;
-    //     $totalSpbCost = 0;
-    //     $totalManPowerCost = 0;
-    //     $totalSpbBoronganCost = 0;
+    protected function costProgress(Project $project): array
+    {
+        /* ───────── 1. TOTAL PURCHASE ───────── */
+        $totalPurchaseCost = $project->purchases()
+            ->whereIn('tab', [
+                Purchase::TAB_SUBMIT,
+                Purchase::TAB_VERIFIED,
+                Purchase::TAB_PAYMENT_REQUEST,
+                Purchase::TAB_PAID,
+            ])
+            ->get()                     // ← ambil sebagai Collection
+            ->sum('net_total');         // ← accessor dihitung di PHP, bukan SQL
 
-    //     // Ambil SPB projects berdasarkan kondisi kategori
-    //     $spbProjects = $project->spbProjects()->get(); // Ambil semua SPB Projects
-        
-    //     foreach ($spbProjects as $spbProject) {
-    //         // Jika kategori adalah Borongan, tampilkan meskipun belum di tab 'paid'
-    //         if ($spbProject->spbproject_category_id == SpbProject_Category::BORONGAN) {
-    //             $totalSpbBoronganCost += $spbProject->harga_total_pembayaran_borongan_spb ?? 0;
-    //         } else {
-    //             // Jika kategori bukan Borongan, hanya ambil yang sudah di tab 'paid'
-    //             /* if ($spbProject->tab_spb == SpbProject::TAB_PAID) {
-    //                 $totalSpbCost += $spbProject->getTotalProdukAttribute();
-    //             } */
-    //             if (in_array($spbProject->tab_spb, [
-    //                 SpbProject::TAB_SUBMIT,
-    //                 SpbProject::TAB_VERIFIED,
-    //                 SpbProject::TAB_PAYMENT_REQUEST,
-    //                 SpbProject::TAB_PAID
-    //             ])) {
-    //                 $totalSpbCost += $spbProject->getTotalProdukAttribute();
-    //             }
-    //         }
-    //     }
+        /* ───────── 2. TOTAL MAN-POWER ──────── */
+        $att = Attendance::where('project_id', $project->id)
+            ->where('status', Attendance::ATTENDANCE_OUT)
+            ->selectRaw('
+                SUM(daily_salary)           AS daily,
+                SUM(hourly_overtime_salary) AS overtime,
+                SUM(late_cut)               AS late_cut
+            ')
+            ->first();
 
-    //     // Hitung total salary dari ManPower terkait proyek
-    //     $manPowers = $project->manPowers()->get();
-    //     foreach ($manPowers as $manPower) {
-    //         $totalManPowerCost += $manPower->current_salary + $manPower->current_overtime_salary;
-    //     }
+        $totalPayrollCost = ($att->daily ?? 0)
+                        + ($att->overtime ?? 0)
+                        - ($att->late_cut ?? 0);
 
-    //     // Total biaya aktual (real cost)
-    //     $totalCost = $totalSpbCost + $totalManPowerCost + $totalSpbBoronganCost;
+        /* ───────── 3. REAL COST & STATUS ───── */
+        $realCost = $totalPurchaseCost + $totalPayrollCost;
 
-    //     // Percent Itu didapat dari cost estimate project dibagi dengan total cost * 100
-    //     if ($project->cost_estimate > 0) {
-    //         $costEstimate = round(($totalCost / $project->cost_estimate) * 100, 2);
-    //     } else {
-    //         $costEstimate = 0;
-    //     }
+        $percent = $project->cost_estimate > 0
+            ? round(($realCost / $project->cost_estimate) * 100, 2)
+            : 0;
 
-    //     // Tentukan status berdasarkan progres biaya
-    //     if ($costEstimate > 90) {
-    //         $status = Project::STATUS_NEED_TO_CHECK;
-    //     }
+        $status = Project::STATUS_OPEN;
+        if ($percent > 90 && $percent < 100) {
+            $status = Project::STATUS_NEED_TO_CHECK;
+        } elseif ($percent >= 100) {
+            $status = Project::STATUS_CLOSED;
+        }
 
-    //     if ($costEstimate == 100) {
-    //         $status = Project::STATUS_CLOSED;
-    //     }
+        $project->update(['status_cost_progres' => $status]);
 
-    //     // Update status proyek di database
-    //     $project->update(['status_cost_progres' => $status]);
-
-    //     // Kembalikan data progres biaya
-    //     return [
-    //         'status_cost_progres' => $status,
-    //         'percent' => $costEstimate . '%',
-    //         'real_cost' => $totalCost,
-    //         'spb_produk_cost' => $totalSpbCost,
-    //         'spb_borongan_cost' => $totalSpbBoronganCost, 
-    //         'man_power_cost' => $totalManPowerCost,
-    //     ];
-    // }
+        /* ───────── 4. RESPON ───────── */
+        return [
+            'status_cost_progres' => $status,
+            'percent'             => $percent . '%',
+            'real_cost'           => $realCost,
+            'purchase_cost'       => $totalPurchaseCost,
+            'payroll_cost'        => $totalPayrollCost,
+        ];
+    }
 
 
     // protected function tukangHarianSalary($query) {
@@ -357,41 +344,4 @@ class ProjectCollection extends ResourceCollection
     //     return (int) $query->selectRaw("SUM(current_salary + current_overtime_salary) as total")->where("work_type", false)->first()->total;
     // }
     
-
-    /* protected function costProgress($project)
-    {
-        $status = Project::STATUS_OPEN;
-        $total = 0;
-
-        $purchases = $project->purchases()->where('tab', Purchase::TAB_PAID)->get();
-
-        foreach ($purchases as $purchase) {
-            $total += $purchase->sub_total;
-        }
-
-        // Check if cost_estimate is greater than zero before dividing
-        if ($project->cost_estimate > 0) {
-            $costEstimate = round(($total / $project->cost_estimate) * 100, 2);
-        } else {
-            // Default value if cost_estimate is zero
-            $costEstimate = 0;
-        }
-
-        if ($costEstimate > 90) {
-            $status = Project::STATUS_NEED_TO_CHECK;
-        }
-
-        if ($costEstimate == 100) {
-            $status = Project::STATUS_CLOSED;
-        }
-
-        // Update the project status in the database
-        $project->update(['status_cost_progress' => $status]);
-
-        return [
-            'status_cost_progress' => $status,
-            'percent' => $costEstimate . '%',
-            'real_cost' => $total
-        ];
-    } */
 }

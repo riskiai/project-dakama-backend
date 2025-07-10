@@ -78,6 +78,21 @@ class Purchase extends Model
         return round($total);
     } */
 
+      public function getNetTotalAttribute(): float
+    {
+        $subTotal = (float) $this->sub_total_purchase;
+
+        $pphAmount = 0;
+        if ($this->pph) {
+            $tax   = \App\Models\Tax::find($this->pph);
+            $rate  = $tax ? (float) $tax->percent : 0;          // 2 → 2  (persen) / 0.02 (decimal)
+            $rate  = $rate > 1 ? $rate / 100 : $rate;
+            $pphAmount = round($subTotal * $rate, 2);
+        }
+
+        return $subTotal - $pphAmount;
+    }
+
      public function purchaseCategory(): HasOne
     {
         return $this->hasOne(PurchaseCategory::class, 'id', 'purchase_category_id');

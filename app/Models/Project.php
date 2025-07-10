@@ -168,4 +168,15 @@ class Project extends Model
     {
         return $this->hasMany(ProjectHasLocation::class, 'project_id', 'id');
     }
+
+     public function purchases()
+    {
+        return $this->hasMany(Purchase::class, 'project_id', 'id');
+    }
+
+    /** Payroll-payroll tenaga kerja proyek (kolom `project_id` di tabel payrolls) */
+    public function payrolls()
+    {
+        return $this->hasMany(Payroll::class, 'project_id', 'id');
+    }
 }
