@@ -23,7 +23,8 @@ class Payroll extends Model
         "notes", // opsional
         "status",
         "approved_at",
-        "approved_by"
+        "approved_by",
+        "reason_approval",
     ];
 
     public function pic()

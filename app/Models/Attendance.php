@@ -42,8 +42,8 @@ class Attendance extends Model
     ];
 
     protected $casts = [
-        "start_time" => "timestamp",
-        "end_time" => "timestamp",
+        "start_time" => "datetime",
+        "end_time" => "datetime",
     ];
 
     public function user()

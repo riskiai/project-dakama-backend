@@ -19,7 +19,8 @@ class EmployeeLoan extends Model
         'latest',
         'reason',
         'status',
-        'is_settled'
+        'is_settled',
+        "reason_approval",
     ];
 
     public function user()

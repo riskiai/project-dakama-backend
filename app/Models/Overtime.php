@@ -20,7 +20,8 @@ class Overtime extends Model
         'reason',
         'status',
         'salary_overtime',
-        'pic_id'
+        'pic_id',
+        "reason_approval",
     ];
 
     public function user()
