@@ -157,6 +157,10 @@ class PurchaseController extends Controller
         //     $query->where('user_id', auth()->user()->id);
         // }
 
+        if (in_array(auth()->user()->role_id, [Role::KARYAWAN, Role::SUPERVISOR])) {
+            $query->where('user_id', auth()->id());
+        }
+
         $purchases = app(Pipeline::class)
             ->send($query)
             ->through([
@@ -206,6 +210,10 @@ class PurchaseController extends Controller
     {
         /* 1) Query + filter pipeline */
         $query = Purchase::query();
+
+        if (in_array(auth()->user()->role_id, [Role::KARYAWAN, Role::SUPERVISOR])) {
+            $query->where('user_id', auth()->id());
+        }
 
         $purchases = app(\Illuminate\Pipeline\Pipeline::class)
             ->send($query)
