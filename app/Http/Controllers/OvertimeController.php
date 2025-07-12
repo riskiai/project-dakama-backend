@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Facades\Helper;
 use App\Facades\MessageDakama;
 use App\Http\Resources\Overtime\OvertimeCollection;
 use App\Http\Resources\Overtime\OvertimeResource;
@@ -71,8 +72,9 @@ class OvertimeController extends Controller
         $validator = Validator::make($request->all(), [
             'project_id'    => 'required|exists:projects,id',
             'task_id'       => 'required|exists:tasks,id',
-            'duration'      => 'required|numeric|integer',
-            'request_date'  => 'required|date_format:Y-m-d H:i:s',
+            'request_date'  => 'required|date_format:Y-m-d',
+            'start_time'    => 'required|date_format:H:i',
+            'end_time'      => 'required|date_format:H:i|after:start_time',
             'reason'        => 'max:255',
             'pic_id'        => 'required|exists:users,id',
         ]);
@@ -86,7 +88,7 @@ class OvertimeController extends Controller
         }
 
         $overtime = Overtime::where('user_id', $user->id)
-            ->whereDate('request_date', Carbon::createFromFormat('Y-m-d H:i:s', $request->request_date)->toDateTime())
+            ->whereDate('request_date', Carbon::createFromFormat('Y-m-d', $request->request_date)->toDateTime())
             ->where('project_id', $request->project_id)
             ->where('task_id', $request->task_id)
             ->first();
@@ -98,12 +100,14 @@ class OvertimeController extends Controller
             Overtime::create([
                 'project_id' => $request->project_id,
                 'task_id' => $request->task_id,
-                'duration' => $request->duration,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
                 'user_id' => $user->id,
                 'pic_id' => $request->pic_id,
-                'salary_overtime' => 0
+                'salary_overtime' => 0,
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time,
+                'duration' => Helper::calculateDurationTime($request->start_time, $request->end_time),
             ]);
 
             DB::commit();
@@ -140,7 +144,6 @@ class OvertimeController extends Controller
         $validator = Validator::make($request->all(), [
             'project_id' => 'required|exists:projects,id',
             'task_id' => 'required|exists:tasks,id',
-            'duration' => 'required|numeric|integer',
             'request_date' => 'required|date_format:Y-m-d H:i:s',
             'reason' => 'max:255',
         ]);
@@ -157,7 +160,6 @@ class OvertimeController extends Controller
             $overtime->update([
                 'project_id' => $request->project_id,
                 'task_id' => $request->task_id,
-                'duration' => $request->duration,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
             ]);
@@ -182,6 +184,7 @@ class OvertimeController extends Controller
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:approved,rejected,cancelled',
             'reason_approval' => 'nullable',
+            'is_overtime_meal' => 'required|boolean'
         ]);
 
         if ($validator->fails()) {
@@ -207,13 +210,17 @@ class OvertimeController extends Controller
             ];
 
             if ($request->status == Overtime::STATUS_APPROVED) {
-                $formData['salary_overtime'] = ($overtime->user->salary->hourly_overtime_salary * $overtime->duration);
+                $formData['salary_overtime'] = $overtime->user->salary->hourly_overtime_salary;
+
+                if ($request->is_overtime_meal == true) {
+                    $formData['makan'] = $request->has('makan') ? $request->makan : $overtime->user->salary->makan ?? 0;
+                }
             }
 
             $overtime->update($formData);
 
             DB::commit();
-            return MessageDakama::success("Overtime successfully {$request->status}");
+            return MessageDakama::success("Overtime successfully {$request->status}", $overtime);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());

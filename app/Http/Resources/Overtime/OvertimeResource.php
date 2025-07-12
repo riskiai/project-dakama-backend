@@ -26,6 +26,8 @@ class OvertimeResource extends JsonResource
             'pic_id' => $this->pic_id,
             'pic_name' => $this->pic?->name,
             'duration' => $this->duration,
+            'start_time' => $this->start_time,
+            'end_time' => $this->end_time,
             'request_date' => $this->request_date,
             'reason' => $this->reason,
             'reason_approval' => $this->reason_approval,

@@ -39,6 +39,8 @@ class Attendance extends Model
         'late_cut',
         'late_minutes',
         'is_settled',
+        'type',
+        'overtime_id'
     ];
 
     protected $casts = [
@@ -59,5 +61,10 @@ class Attendance extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function overtime()
+    {
+        return $this->belongsTo(Overtime::class);
     }
 }

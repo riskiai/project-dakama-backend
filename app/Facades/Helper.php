@@ -12,4 +12,9 @@ class Helper
 
         return (int) ceil($cutTotal);
     }
+
+    public static function calculateDurationTime($start, $end)
+    {
+        return (strtotime($end) - strtotime($start)) / 60 / 60;
+    }
 }

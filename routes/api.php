@@ -178,6 +178,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/show-me', [AttendanceController::class, 'showMe']);
         Route::post('/store', [AttendanceController::class, 'store']);
         Route::post('/sync', [AttendanceController::class, 'sync']);
+        Route::delete('/destroy-bulk', [AttendanceController::class, 'destroy']);
 
         Route::prefix('adjustment')->group(function () {
             Route::get('/index', [AttendanceController::class, 'adjustmentIndex']);

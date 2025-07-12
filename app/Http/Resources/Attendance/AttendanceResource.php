@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Attendance;
 
+use App\Http\Resources\Overtime\OvertimeResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,15 @@ class AttendanceResource extends JsonResource
     public function toArray(Request $request): array
     {
         // return parent::toArray($request);
+
+
+        if ($request->show_overtime == 1) {
+            $data = [
+                'overtime' => $this->whenLoaded('overtime', $this->overtime)
+            ];
+        } else {
+            $data = [];
+        }
 
         return [
             'id' => $this->id,
@@ -37,8 +47,10 @@ class AttendanceResource extends JsonResource
             'image_out' => $this->image_out ? Storage::url($this->image_out) : "-",
             'status' => str()->of($this->status)->upper(),
             'present' => $this->isPresent($this),
+            'type' => $this->type == 0 ? "ATTENDANCE" : "OVERTIME",
             'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at
+            'updated_at' => $this->updated_at,
+            ...$data
         ];
     }
 

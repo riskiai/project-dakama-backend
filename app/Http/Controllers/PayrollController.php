@@ -97,17 +97,24 @@ class PayrollController extends Controller
         $attendCount = Attendance::selectRaw("count(id) as total_working_day, sum(daily_salary + makan + transport + bonus_ontime) as total_salary, sum(late_cut) as total_late_cut")
             ->where('is_settled', 0)
             ->whereBetween('start_time', [$start, $end])
+            ->where('type', 0)
             ->first();
 
-        $overTimeCount = Overtime::selectRaw("sum(duration) as total_overtime_hour, sum(salary_overtime) as total_salary_overtime")
-            ->whereBetween('request_date', [$start, $end])
-            ->where('status', Overtime::STATUS_APPROVED)
+        if ($attendCount->total_working_day < 1) {
+            return MessageDakama::warning("User '{$userTarget->name}' doesn't have working day in {$start} to {$end}");
+        }
+
+        $overTimeCount = Attendance::selectRaw("sum(duration) as total_overtime_hour, sum(hourly_overtime_salary * duration) as total_salary_overtime, sum(makan) as total_makan")
+            ->where('is_settled', 0)
+            ->whereBetween('start_time', [$start, $end])
+            ->where('type', 1)
             ->first();
+
 
         $totalWorkingDay = $attendCount->total_working_day ?? 0;
         $totalSalaryWorking = $attendCount->total_salary ?? 0;
         $totalLateCut = $attendCount->total_late_cut ?? 0;
-        $totalSalaryOvertime = $overTimeCount->total_salary_overtime ?? 0;
+        $totalSalaryOvertime = $overTimeCount->total_salary_overtime  + $overTimeCount->total_makan;
         $totalLoan = 0;
 
         if ($request->is_all_loan == true) {
@@ -125,7 +132,7 @@ class PayrollController extends Controller
         }
 
         try {
-            Payroll::create([
+            $payroll = Payroll::create([
                 "user_id" => $userTarget->id,
                 "pic_id" => $request->pic_id,
                 "total_attendance" => $totalWorkingDay,
@@ -137,8 +144,8 @@ class PayrollController extends Controller
                 "notes" => $request->notes,
             ]);
 
-            DB::commit();
-            return MessageDakama::success("Payroll successfully created");
+            // DB::commit();
+            return MessageDakama::success("Payroll successfully created", $payroll);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());

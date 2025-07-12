@@ -11,6 +11,7 @@ use App\Http\Resources\Attendance\AttendanceResource;
 use App\Models\Attendance;
 use App\Models\AttendanceAdjustment;
 use App\Models\OperationalHour;
+use App\Models\Overtime;
 use App\Models\Role;
 use App\Models\UserProjectAbsen;
 use App\Models\UserSalary;
@@ -28,9 +29,14 @@ class AttendanceController extends Controller
 
         $query = Attendance::query();
 
-        $query->with(['project', 'user', 'task' => function ($query) {
-            $query->withTrashed();
-        }]);
+        $query->with([
+            'project',
+            'user',
+            'task' => function ($query) {
+                $query->withTrashed();
+            },
+            'overtime',
+        ]);
 
         if ($user->hasRole(Role::KARYAWAN)) {
             $query->where('user_id', $user->id);
@@ -58,12 +64,12 @@ class AttendanceController extends Controller
             });
         });
 
-        $query->when($request->has('start_date') && $request->filled('start_date'), function ($query) use ($request) {
-            $query->whereDate('created_at', '>=', $request->start_date);
+        $query->when($request->has('start_date') && $request->filled('start_date') && $request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
+            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
         });
 
-        $query->when($request->has('end_date') && $request->filled('end_date'), function ($query) use ($request) {
-            $query->whereDate('created_at', '<=', $request->end_date);
+        $query->when($request->has('type') && $request->filled('type'), function ($query) use ($request) {
+            $query->where('type', $request->type);
         });
 
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
@@ -76,17 +82,21 @@ class AttendanceController extends Controller
         return new AttendanceCollection($adjs);
     }
 
-    public function showMe()
+    public function showMe(Request $request)
     {
         $user = Auth::user();
 
         $currentTime = now();
 
-        $attendance = Attendance::with(['task' => function ($query) {
-            $query->withTrashed();
-        }])
+        $attendance = Attendance::with([
+            'task' => function ($query) {
+                $query->withTrashed();
+            },
+            'overtime',
+        ])
             ->where('user_id', $user->id)
             ->whereDate('start_time', $currentTime)
+            ->where('type', $request->type ?? 0)
             ->first();
 
         if (!$attendance) {
@@ -126,11 +136,13 @@ class AttendanceController extends Controller
 
         $attendance = Attendance::where([
             'project_id' => $request->validated('project_id'),
-            'user_id'    => $user->id
+            'user_id'    => $user->id,
+            'type'       => $request->validated('type')
         ])->whereDate('start_time', $currentTime)->first();
 
         if ($attendance && $attendance->status == Attendance::ATTENDANCE_OUT) {
-            return MessageDakama::warning("User already attendance out!");
+            $type = $request->validated('type') ==  0 ? 'attendance' : 'overtime';
+            return MessageDakama::warning("User already {$type} out!");
         }
 
         if ($attendance) {
@@ -170,11 +182,15 @@ class AttendanceController extends Controller
                     'location_out' => $request->location_out,
                     'location_lat_out' => $request->location_lat_out,
                     'location_long_out' => $request->location_long_out,
-                    'image_out' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public'),
+                    'image_out' => $request->type == 0 ? $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public') : "-",
                     'status' => Attendance::ATTENDANCE_OUT
                 ]);
 
-                $message = "User {$user->name} attendance out success!";
+                if ($request->type == 0) {
+                    $message = "User {$user->name} attendance out success!";
+                } else {
+                    $message = "User {$user->name} overtime out success!";
+                }
             } else {
                 $lateCut = 0;
                 if (strtotime($currentTime) > strtotime($operationalHour->late_time)) {
@@ -186,34 +202,68 @@ class AttendanceController extends Controller
                     $bonusOnTime = $operationalHour->bonus;
                 }
 
+                if ($request->type == 1) {
+                    $overtime = Overtime::whereDate('request_date', now()->format('Y-m-d'))
+                        ->where('user_id', $user->id)
+                        ->where('is_present', false)
+                        ->where('status', Overtime::STATUS_APPROVED)
+                        ->first();
+                    if (!$overtime) {
+                        return MessageDakama::warning("There is no overtime today!");
+                    }
+
+                    $tasks = [
+                        'project_id' => $overtime->project_id,
+                        'task_id' => $overtime->task_id,
+                        'overtime_id' => $overtime->id,
+                        'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
+                        'image_in' => '-',
+                        'duration' => $overtime->duration,
+                        'makan' => $overtime->makan
+                    ];
+
+                    $overtime->update([
+                        'is_present' => 1
+                    ]);
+                } else {
+                    $tasks = [
+                        'project_id' => $request->validated('project_id'),
+                        'task_id' => $request->validated('task_id'),
+                        'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
+                        'daily_salary' => $user->salary->daily_salary,
+                        'hourly_salary' => $user->salary->hourly_salary,
+                        'transport' => $user->salary->transport,
+                        'makan' => $user->salary->makan,
+                        'late_cut' => $lateCut,
+                        'bonus_ontime' => $bonusOnTime,
+                        'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0,
+                        'duration' => $operationalHour->duration,
+                    ];
+                }
+
                 $attendance = Attendance::create([
-                    'project_id' => $request->validated('project_id'),
-                    'task_id' => $request->validated('task_id'),
+                    ...$tasks,
                     'start_time' => $currentTime,
                     'location_in' => $request->location_in,
                     'location_lat_in' => $request->location_lat_in,
                     'location_long_in' => $request->location_long_in,
                     'user_id' => $user->id,
-                    'duration' => $operationalHour->duration,
-                    'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
                     'status' => Attendance::ATTENDANCE_IN,
-                    'daily_salary' => $user->salary->daily_salary,
-                    'hourly_salary' => $user->salary->hourly_salary,
-                    'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
-                    'transport' => $user->salary->transport,
-                    'makan' => $user->salary->makan,
-                    'late_cut' => $lateCut,
-                    'bonus_ontime' => $bonusOnTime,
-                    'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0
+                    'type' => $request->type
                 ]);
 
-                $message = "User {$user->name} attendance in success!";
+                if ($request->type == 0) {
+                    $message = "User {$user->name} attendance in success!";
+                } else {
+                    $message = "User {$user->name} overtime in success!";
+                }
             }
 
             DB::commit();
-            return MessageDakama::success($message);
+            return MessageDakama::success($message, $attendance);
         } catch (\Throwable $th) {
             DB::rollBack();
+            dd($th);
             return MessageDakama::error("Gagal mendaftarkan absen: " . $user->name);
         }
     }
@@ -272,6 +322,39 @@ class AttendanceController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error("Gagal sinkronisasi gaji" . $th->getMessage());
+        }
+    }
+
+    public function destroy(Request $request)
+    {
+        DB::beginTransaction();
+
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'required|date_format:Y-m-d',
+            'end_date' => 'required|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $attendances = Attendance::whereBetween('created_at', [$request->start_date, $request->end_date])->where('is_settled', 1);
+        if ($attendances->count() < 1) {
+            return MessageDakama::warning("Absen tidak ada diantara tanggal tersebut!");
+        }
+
+        try {
+            $attendances->delete();
+
+            DB::commit();
+            return MessageDakama::success("Berhasil menghapus absen");
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error("Gagal menghapus absen" . $th->getMessage());
         }
     }
 

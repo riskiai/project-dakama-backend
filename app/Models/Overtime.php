@@ -22,6 +22,14 @@ class Overtime extends Model
         'salary_overtime',
         'pic_id',
         "reason_approval",
+        'start_time',
+        'end_time',
+        'is_present',
+        'makan'
+    ];
+
+    protected $casts = [
+        'request_date' => 'datetime',
     ];
 
     public function user()
