@@ -144,7 +144,9 @@ class PayrollController extends Controller
                 "notes" => $request->notes,
             ]);
 
-            // DB::commit();
+            $this->createNotification($payroll, $user, 'Berita Gajian', "Berita gajian untuk {$userTarget->name} dari {$start} sampai {$end} telah dibuat oleh {$user->name}");
+
+            DB::commit();
             return MessageDakama::success("Payroll successfully created", $payroll);
         } catch (\Throwable $th) {
             DB::rollBack();

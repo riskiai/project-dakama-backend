@@ -97,7 +97,7 @@ class OvertimeController extends Controller
         }
 
         try {
-            Overtime::create([
+            $overtime = Overtime::create([
                 'project_id' => $request->project_id,
                 'task_id' => $request->task_id,
                 'request_date' => $request->request_date,
@@ -109,6 +109,8 @@ class OvertimeController extends Controller
                 'end_time' => $request->end_time,
                 'duration' => Helper::calculateDurationTime($request->start_time, $request->end_time),
             ]);
+
+            $this->createNotification($overtime, $user, 'Permintaan Lembur', 'Permintaan lembur dari ' . $user->name);
 
             DB::commit();
             return MessageDakama::success('Overtime successfully created');

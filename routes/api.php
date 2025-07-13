@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ContactTypeController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MutationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\OvertimeController;
 use App\Http\Controllers\PayrollController;
@@ -175,6 +176,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('attendance')->group(function () {
         Route::get('/index', [AttendanceController::class, 'index']);
+        Route::get('/show', [AttendanceController::class, 'show']);
         Route::get('/show-me', [AttendanceController::class, 'showMe']);
         Route::post('/store', [AttendanceController::class, 'store']);
         Route::post('/sync', [AttendanceController::class, 'sync']);
@@ -233,5 +235,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/unassign', [PermissionController::class, 'unassign']);
         Route::put('/update/{id}', [PermissionController::class, 'update']);
         Route::delete('/destroy/{id}', [PermissionController::class, 'destroy']);
+    });
+
+    Route::prefix('notification')->group(function () {
+        Route::get('/index', [NotificationController::class, 'index']);
+        Route::get('/show/{id}', [NotificationController::class, 'show']);
+        Route::delete('/destroy-bulk', [NotificationController::class, 'destroy']);
     });
 });

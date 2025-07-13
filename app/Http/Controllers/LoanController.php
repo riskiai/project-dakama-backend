@@ -84,7 +84,7 @@ class LoanController extends Controller
         }
 
         try {
-            EmployeeLoan::create([
+            $loan = EmployeeLoan::create([
                 'user_id' => $user->id,
                 'nominal' => $request->nominal,
                 'request_date' => $request->request_date,
@@ -92,6 +92,8 @@ class LoanController extends Controller
                 'latest' => $request->nominal,
                 'pic_id' => $request->pic_id
             ]);
+
+            $this->createNotification($loan, $user, "Permintaan Kasbon", "Permintaan kasbon dari {$user->name}");
 
             DB::commit();
             return MessageDakama::success('Loan successfully created');

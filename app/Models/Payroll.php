@@ -46,4 +46,9 @@ class Payroll extends Model
     {
         return $this->morphMany(MutationLoan::class, 'mutable');
     }
+
+    public function notification()
+    {
+        return $this->morphOne(Notification::class, 'notifiable');
+    }
 }

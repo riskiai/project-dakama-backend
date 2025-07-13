@@ -51,4 +51,9 @@ class Overtime extends Model
     {
         return $this->belongsTo(User::class, 'pic_id');
     }
+
+    public function notification()
+    {
+        return $this->morphOne(Notification::class, 'notifiable');
+    }
 }

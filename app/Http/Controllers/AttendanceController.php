@@ -82,6 +82,21 @@ class AttendanceController extends Controller
         return new AttendanceCollection($adjs);
     }
 
+    public function show($id)
+    {
+        $attendance = Attendance::with([
+            'task' => function ($query) {
+                $query->withTrashed();
+            },
+            'overtime',
+        ])->first();
+        if (!$attendance) {
+            return MessageDakama::notFound('Attendance not found');
+        }
+
+        return new AttendanceResource($attendance);
+    }
+
     public function showMe(Request $request)
     {
         $user = Auth::user();
@@ -414,7 +429,7 @@ class AttendanceController extends Controller
         }
 
         try {
-            AttendanceAdjustment::create([
+            $adj = AttendanceAdjustment::create([
                 'attendance_id' => $request->attendance_id,
                 'pic_id' => $request->pic_id,
                 'user_id' => $user->id,
@@ -424,6 +439,8 @@ class AttendanceController extends Controller
                 'old_end_time' => $attendance->end_time,
                 'reason' => $request->reason
             ]);
+
+            $this->createNotification($adj, $user, 'Perubahan Absen', 'Pengajuan perubahan absen dibuat oleh ' . $user->name);
 
             DB::commit();
             return MessageDakama::success("Adjustment has been created");

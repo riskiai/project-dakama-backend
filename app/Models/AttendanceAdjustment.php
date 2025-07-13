@@ -37,4 +37,9 @@ class AttendanceAdjustment extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function notification()
+    {
+        return $this->morphOne(Notification::class, 'notifiable');
+    }
 }
