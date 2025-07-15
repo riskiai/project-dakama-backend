@@ -69,6 +69,8 @@ class BudgetController extends Controller
                 'nama_budget'  => $request->nama_budget,
                 'type'         => $request->type,
                 'nominal'      => $request->nominal,
+                'unit'         => $request->unit, 
+                'stok'         => $request->stok,
             ]);
 
             DB::commit();
@@ -100,6 +102,8 @@ class BudgetController extends Controller
                     'type_budget' => $this->typeLabel($budget->type),
                 ],
             'nominal' => (float) $budget->nominal,
+            'unit' => $budget->unit,
+            'stok' => $budget->stok,
             'created_at' => $budget->created_at,
             'updated_at' => $budget->updated_at,
         ]);
@@ -129,6 +133,8 @@ class BudgetController extends Controller
                 'nama_budget'  => $request->nama_budget,
                 'type'         => $request->type,
                 'nominal'      => $request->nominal,
+                'unit'         => $request->unit, 
+                'stok'         => $request->stok,
             ]);
 
             DB::commit();

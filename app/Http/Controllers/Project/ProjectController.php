@@ -246,33 +246,9 @@ class ProjectController extends Controller
         return new ProjectCollection(collect([$project]));
     }
 
-    public function counting(Request $request)
+    /* public function counting(Request $request)
     {
         $query = Project::query();
-
-        // Terapkan filter berdasarkan peran pengguna
-        /* if ($request->has('role_id')) {
-            // Ambil array role_id dari request, pastikan dalam bentuk array
-            $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
-
-            // Terapkan filter untuk role_id
-            $query->whereHas('tenagaKerja', function ($q) use ($roleIds) {
-                $q->whereIn('role_id', $roleIds);
-            });
-        } */
-
-        /* if ($request->has('status_cost_progres')) {
-            $statusCostProgress = $request->status_cost_progres;
-            $query->where('status_cost_progres', $statusCostProgress);
-        } */
-
-        /* if ($request->has('divisi_name')) {
-            $divisiNames = is_array($request->divisi_name) ? $request->divisi_name : explode(',', $request->divisi_name);
-
-            $query->whereHas('tenagaKerja.divisi', function ($q) use ($divisiNames) {
-                $q->whereIn('name', $divisiNames); // Filter berdasarkan name divisi
-            });
-        } */
 
         if ($request->has('request_status_owner')) {
             $query->where('request_status_owner', $request->request_status_owner);
@@ -329,25 +305,6 @@ class ProjectController extends Controller
 
         $totalProjects = $collection->count();
 
-        // $totalHargaType = (float) $query->sum('harga_type_project');
-
-        /*  $totalHargaBorongan = SpbProject::where('spbproject_category_id', SpbProject_Category::BORONGAN)
-        ->whereHas('project', function ($q) use ($request) {
-            // Filter berdasarkan proyek yang dipilih
-            if ($request->has('project')) {
-                $q->where('id', $request->project);
-            }
-            // Filter berdasarkan vendor jika ada
-            if ($request->has('vendor')) {
-                $q->where('company_id', $request->vendor);
-            }
-            // Filter berdasarkan tahun jika ada
-            if ($request->has('year')) {
-                $q->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$request->year]);
-            }
-        })
-        ->sum('harga_total_pembayaran_borongan_spb'); */
-
         // Response data
         return response()->json([
             "billing" => $totalBilling,
@@ -357,6 +314,90 @@ class ProjectController extends Controller
             "total_projects" => $totalProjects,
             // "harga_type_project_total_borongan" => $totalHargaType,
             // "total_harga_borongan_spb" => $totalHargaBorongan,
+        ]);
+    } */
+
+        public function counting(Request $request)
+    {
+        // Mulai query proyek + sum nominal budget (alias: cost_estimate_from_budget)
+        $query = Project::query()
+            ->withSum('budgetsDirect as cost_estimate_from_budget', 'nominal');
+
+        /* -----------------------------------------------------------------
+         |  FILTER SECTION
+         |-----------------------------------------------------------------*/
+        if ($request->filled('request_status_owner')) {
+            $query->where('request_status_owner', $request->request_status_owner);
+        }
+
+        if ($request->filled('no_dokumen_project')) {
+            $query->where('no_dokumen_project', 'like', "%{$request->no_dokumen_project}%");
+        }
+
+        if ($request->filled('type_projects')) {
+            $typeProjects = is_array($request->type_projects)
+                ? $request->type_projects
+                : explode(',', $request->type_projects);
+
+            $query->whereIn('type_projects', $typeProjects);
+        }
+
+        if ($request->filled('project')) {
+            $query->where('id', $request->project);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('vendor')) {
+            $query->where('company_id', $request->vendor);
+        }
+
+        if ($request->filled('date')) {
+            // format input: "[2025-01-01, 2025-12-31]" atau "2025-01-01, 2025-12-31"
+            $range = str_replace(['[', ']'], '', $request->date);
+            [$start, $end] = array_map('trim', explode(',', $range));
+
+            $query->whereRaw(
+                'STR_TO_DATE(`date`, "%Y-%m-%d") BETWEEN ? AND ?',
+                [$start, $end]
+            );
+        }
+
+        if ($request->filled('year')) {
+            $query->whereRaw(
+                'YEAR(STR_TO_DATE(`date`, "%Y-%m-%d")) = ?',
+                [$request->year]
+            );
+        }
+
+        /* -----------------------------------------------------------------
+         |  EXECUTE & AGGREGATE
+         |-----------------------------------------------------------------*/
+        $collection = $query->get();
+
+        // Total billing (harga proyek)
+        $totalBilling = (float) $collection->sum('billing');
+
+        // Total estimasi biaya (dari budget nominal)
+        $totalCostEstimate = (float) $collection->sum('cost_estimate_from_budget');
+
+        // Total margin = billing - cost_estimate
+        $totalMargin = $totalBilling - $totalCostEstimate;
+
+        // Profit margin % (dibulatkan 2 desimal)
+        $percent = $totalBilling > 0
+            ? round(($totalMargin / $totalBilling) * 100, 2)
+            : 0.0;
+
+        // Hasil akhir
+        return response()->json([
+            'billing'        => $totalBilling,
+            'cost_estimate'  => $totalCostEstimate,
+            'margin'         => $totalMargin,
+            'percent'        => $percent . '%',  // tambahkan simbol %
+            'total_projects' => $collection->count(),
         ]);
     }
 
