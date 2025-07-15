@@ -119,27 +119,38 @@ class ProjectCollection extends ResourceCollection
     }
 
     
+    /**
+     * Hitung margin proyek.
+     * - Jika belum ada budget (sum = 0) kembalikan 0.
+     */
     protected function formatMargin(Project $project): float
     {
-        $billing      = (float) $project->billing;
-        $totalBudget  = (float) $project->budgetsDirect()->sum('nominal');
+        $totalBudget = (float) $project->budgetsDirect()->sum('nominal');
 
+        // Belum ada biaya => margin 0
+        if ($totalBudget <= 0) {
+            return 0.0;
+        }
+
+        $billing = (float) $project->billing;
         return round($billing - $totalBudget, 2);
     }
 
     /**
-     * Hitung persentase margin (profit margin %)
+     * Hitung persentase profit margin.
+     * - Jika margin = 0 atau billing = 0, hasil 0 %.
      */
     protected function formatPercent(Project $project, float $margin): float
     {
         $billing = (float) $project->billing;
 
-        if ($billing <= 0) {
-            return 0.0; // hindari divide-by-zero
+        if ($billing <= 0 || $margin <= 0) {
+            return 0.0;
         }
 
         return round(($margin / $billing) * 100, 2);
     }
+
 
 
     /* protected function formatPercent($percent): float
