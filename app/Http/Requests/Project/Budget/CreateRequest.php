@@ -30,6 +30,8 @@ class CreateRequest extends FormRequest
             'nama_budget'  => 'nullable|string|max:255',
             'type'         => 'nullable|in:1,2', // 1: JASA, 2: MATERIAL
             'nominal'      => 'nullable|numeric|min:0',
+            'unit'        => 'nullable|string|max:255', // kolom baru
+            'stok'        => 'nullable|string|max:255', // kolom baru
         ];
     }
 

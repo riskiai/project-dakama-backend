@@ -3,16 +3,10 @@
 namespace App\Http\Resources\Project;
 
 use Carbon\Carbon;
-use App\Models\Role;
-use App\Models\User;
-use App\Models\Payroll;
 use App\Models\Project;
 use App\Models\Purchase;
 use App\Models\Attendance;
-use App\Models\SpbProject;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\SpbProject_Category;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class ProjectCollection extends ResourceCollection
@@ -41,23 +35,6 @@ class ProjectCollection extends ResourceCollection
                     'name' => optional($project->company)->name,
                     'contact_type' => optional($project->company)->contactType?->name,
                 ],
-                /* 'karyawan' => $project->tenagaKerja() 
-                ->get()
-                ->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'daily_salary' => $user->salary ? $user->salary->daily_salary : 0,
-                        'hourly_salary' => $user->salary ? $user->salary->hourly_salary : 0,
-                        'hourly_overtime_salary' => $user->salary ? $user->salary->hourly_overtime_salary : 0,
-                        'makan' => $user->salary ? $user->salary->makan : 0,
-                        'transport' => $user->salary ? $user->salary->transport : 0,
-                        'divisi' => [
-                            'id' => optional($user->divisi)->id,
-                            'name' => optional($user->divisi)->name,
-                        ],
-                    ];
-                }), */
                'tasks' => $project
                     ->tasksDirect()                     // ← pakai ()
                     ->select('tasks.*')                 // samakan kolom
@@ -75,7 +52,7 @@ class ProjectCollection extends ResourceCollection
                         ];
                     }),
 
-                     'budgets' => $project
+                'budgets' => $project
                         ->budgetsDirect()                // gunakan query builder
                         ->orderByDesc('created_at')      // terbaru dahulu
                         ->get()
@@ -85,24 +62,21 @@ class ProjectCollection extends ResourceCollection
                                 'nama_budget'   => $budget->nama_budget,
                                 'type_budget'   => $budget->type == \App\Models\Budget::JASA ? 'Jasa' : 'Material',
                                 'nominal'       => $budget->nominal,
+                                'unit'          => $budget->unit,
+                                'stok'          => $budget->stok,
                             ];
-                        }),
-               /*  'tasks' => $project->tasks() 
-                ->get()
-                ->map(function ($tasks) {
-                    return [
-                        'id' => $tasks->id,
-                        'nama_pekerjaan' => $tasks->nama_task,
-                        'type_pekerjaan' => $tasks->type == \App\Models\Task::JASA ? 'Jasa' : 'Material',
-                        'nominal' => $tasks->nominal,
-                    ];
-                }), */
+                }),
+                'billing' => $project->billing,
+                'margin'  => $this->formatMargin($project),
+                'percent' => $this->formatPercent(
+                                $project,
+                                $this->formatMargin($project)   
+                            ),
                 'date' => $project->date,
                 'name' => $project->name,
-                'billing' => $project->billing,
-                'cost_estimate' => $project->cost_estimate,
-                'margin' => $project->margin,
-                'percent' => $this->formatPercent($project->percent),
+                // 'percent' => $this->formatPercent($project->percent),
+                // 'margin' => $project->margin,
+                // 'cost_estimate' => $project->cost_estimate,
                 'cost_progress_project' => $this->costProgress($project),
                 'file_attachment' => [
                     'name' => $project->file ? date('Y', strtotime($project->created_at)) . '/' . $project->id . '.' . pathinfo($project->file, PATHINFO_EXTENSION) : null,
@@ -144,14 +118,45 @@ class ProjectCollection extends ResourceCollection
         return $data;
     }
 
-      /**
-     * Format percent by removing "%" and rounding the value.
+    
+    /**
+     * Hitung margin proyek.
+     * - Jika belum ada budget (sum = 0) kembalikan 0.
      */
-    protected function formatPercent($percent): float
+    protected function formatMargin(Project $project): float
     {
-        // Remove "%" if present and convert to float before rounding
-        return round(floatval(str_replace('%', '', $percent)), 2);
+        $totalBudget = (float) $project->budgetsDirect()->sum('nominal');
+
+        // Belum ada biaya => margin 0
+        if ($totalBudget <= 0) {
+            return 0.0;
+        }
+
+        $billing = (float) $project->billing;
+        return round($billing - $totalBudget, 2);
     }
+
+    /**
+     * Hitung persentase profit margin.
+     * - Jika margin = 0 atau billing = 0, hasil 0 %.
+     */
+    protected function formatPercent(Project $project, float $margin): float
+    {
+        $billing = (float) $project->billing;
+
+        if ($billing <= 0 || $margin <= 0) {
+            return 0.0;
+        }
+
+        return round(($margin / $billing) * 100, 2);
+    }
+
+
+
+    /* protected function formatPercent($percent): float
+    {
+        return round(floatval(str_replace('%', '', $percent)), 2);
+    } */
 
     protected function getDataTypeProject($status) {
         $statuses = [

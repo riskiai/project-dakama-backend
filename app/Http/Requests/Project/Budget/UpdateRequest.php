@@ -30,6 +30,8 @@ class UpdateRequest extends FormRequest
             'nama_budget'  => 'required|string|max:255',
             'type'         => 'required|in:1,2', // 1: JASA, 2: MATERIAL
             'nominal'      => 'required|numeric|min:0',
+            'unit'        => 'nullable|string|max:255', // kolom baru
+            'stok'        => 'nullable|string|max:255', // kolom baru
         ];
     }
 

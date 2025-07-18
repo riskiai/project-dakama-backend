@@ -71,6 +71,10 @@ class Project extends Model
         'payment_date_termin_proyek'
     ];
 
+    protected $casts = [
+        'billing' => 'float',
+    ];
+
     public static function getTypeProjectsOptions()
     {
         return [

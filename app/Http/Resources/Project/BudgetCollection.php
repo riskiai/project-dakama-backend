@@ -26,6 +26,8 @@ class BudgetCollection extends ResourceCollection
                     'type_budget' => $this->typeLabel($budget->type),
                 ],
                 'nominal'    => $budget->nominal,
+                'unit' => $budget->unit,
+                'stok' => $budget->stok,
                 'created_at' => $budget->created_at,
                 'updated_at' => $budget->updated_at,
             ];

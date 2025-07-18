@@ -21,6 +21,12 @@ class Budget extends Model
         'nama_budget',
         'type',
         'nominal',
+        'unit',  
+        'stok', 
+    ];
+
+    protected $casts = [
+        'nominal' => 'float',
     ];
 
     public function project(): BelongsTo
