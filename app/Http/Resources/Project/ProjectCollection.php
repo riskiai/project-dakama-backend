@@ -73,7 +73,7 @@ class ProjectCollection extends ResourceCollection
                                 $this->formatMargin($project)   
                             ),
                 'date' => $project->date,
-                'name' => $project->name,
+                // 'name' => $project->name,
                 // 'percent' => $this->formatPercent($project->percent),
                 // 'margin' => $project->margin,
                 // 'cost_estimate' => $project->cost_estimate,
