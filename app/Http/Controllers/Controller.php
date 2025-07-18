@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendEmailApprovalJob;
 use App\Models\Notification;
 use App\Models\Role;
 use App\Models\User;
@@ -16,6 +17,8 @@ abstract class Controller
             'title' => $title,
             'description' => $message,
         ]);
+
+        SendEmailApprovalJob::dispatch([$model->pic->email], $model->pic, $notification)->onQueue('mail')->delay(now()->addMinutes(1))->onConnection('database');
 
         $this->broadcastMessage($notification, $user);
     }

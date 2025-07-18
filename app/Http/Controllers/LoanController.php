@@ -5,11 +5,16 @@ namespace App\Http\Controllers;
 use App\Facades\MessageDakama;
 use App\Http\Resources\Loan\LoanCollection;
 use App\Http\Resources\Loan\LoanResource;
+use App\Jobs\SendEmailApprovalJob;
+use App\Mail\RegisterMail;
+use App\Mail\SendApprovalMail;
 use App\Models\EmployeeLoan;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class LoanController extends Controller
