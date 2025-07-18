@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendEmailApprovalJob;
+use App\Mail\SendApprovalMail;
 use App\Models\Notification;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Mail;
 
 abstract class Controller
 {
@@ -18,7 +20,11 @@ abstract class Controller
             'description' => $message,
         ]);
 
-        SendEmailApprovalJob::dispatch([$model->pic->email], $model->pic, $notification)->onQueue('mail')->delay(now()->addMinutes(1))->onConnection('database');
+        if (env('QUEUE_MAIL') === "true") {
+            SendEmailApprovalJob::dispatch([$model->pic->email], $model->pic, $notification)->onQueue('mail')->delay(now()->addMinutes(1))->onConnection('database');
+        } else {
+            Mail::to($model->pic->email)->send(new SendApprovalMail($model->pic, $notification));
+        }
 
         $this->broadcastMessage($notification, $user);
     }
