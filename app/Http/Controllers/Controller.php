@@ -20,7 +20,7 @@ abstract class Controller
             'description' => $message,
         ]);
 
-        if (env('QUEUE_MAIL') === "true") {
+        if (env('QUEUE_MAIL', 'false') === "true") {
             SendEmailApprovalJob::dispatch([$model->pic->email], $model->pic, $notification)->onQueue('mail')->delay(now()->addMinutes(1))->onConnection('database');
         } else {
             Mail::to($model->pic->email)->send(new SendApprovalMail($model->pic, $notification));
