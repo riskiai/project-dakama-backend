@@ -37,6 +37,7 @@ class Project extends Model
     const HIK = 1;
     const DWI = 2;
 
+    const TYPE_TERMIN_PROYEK_NONE  = 0; 
     const TYPE_TERMIN_PROYEK_BELUM_LUNAS = 1;
     const TYPE_TERMIN_PROYEK_LUNAS = 2;
 

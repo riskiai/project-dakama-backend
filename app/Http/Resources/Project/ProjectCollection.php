@@ -262,7 +262,7 @@ class ProjectCollection extends ResourceCollection
         })->toArray();
     }
 
-    protected function convertTypeTermin($status)
+  /*   protected function convertTypeTermin($status)
     {
         if (is_array($status)) {
             $id = $status['id'] ?? null;
@@ -273,6 +273,25 @@ class ProjectCollection extends ResourceCollection
         return [
             "id" => $id,
             "name" => is_null($id) ? "Unknown" : ($id == Project::TYPE_TERMIN_PROYEK_LUNAS ? "Lunas" : "Belum Lunas"),
+        ];
+    } */
+
+        protected function convertTypeTermin($status)
+    {
+        // ① Status kosong → default
+        if (empty($status) || (is_array($status) && empty($status['id']))) {
+            return [
+                'id'   => Project::TYPE_TERMIN_PROYEK_NONE,
+                'name' => 'Belum Ada Pembayaran',
+            ];
+        }
+
+        // ② Status terisi
+        $id = is_array($status) ? (int) $status['id'] : (int) $status;
+
+        return [
+            'id'   => $id,
+            'name' => $id == Project::TYPE_TERMIN_PROYEK_LUNAS ? 'Lunas' : 'Belum Lunas',
         ];
     }
 
