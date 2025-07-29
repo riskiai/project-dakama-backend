@@ -791,65 +791,91 @@ class ProjectController extends Controller
         DB::beginTransaction();
 
         try {
-            $project = Project::findOrFail($id);
+            /*--------------------------------------------------
+            | 1.  Lock proyek agar tidak ada race condition
+            --------------------------------------------------*/
+            $project = Project::where('id', $id)->lockForUpdate()->firstOrFail();
 
-            // Periksa apakah ada file yang diunggah
+            /*--------------------------------------------------
+            | 2.  Handle file upload (jika ada)
+            --------------------------------------------------*/
             $fileAttachment = null;
             if ($request->hasFile('attachment_file_termin_proyek')) {
                 $file = $request->file('attachment_file_termin_proyek');
 
-                // Pastikan hanya ada satu file yang diunggah
                 if (is_array($file)) {
-                    throw new \Exception("Hanya satu file yang diperbolehkan untuk attachment_file_termin_proyek");
+                    throw new \Exception(
+                        'Hanya satu file yang diperbolehkan untuk attachment_file_termin_proyek'
+                    );
                 }
-
                 $fileAttachment = $file->store(Project::ATTACHMENT_FILE_TERMIN_PROYEK, 'public');
             }
 
-            // Pastikan `type_termin_proyek` bukan array dan konversi ke string
-            $typeTermin = $request->input('type_termin_proyek');
-            if (is_array($typeTermin)) {
-                throw new \Exception("Field type_termin_proyek harus berupa string atau integer, bukan array.");
-            }
-            $typeTermin = (string) $typeTermin;
+            /*--------------------------------------------------
+            | 3.  Pastikan type_termin_proyek valid
+            --------------------------------------------------*/
+            $typeTerminStr = (string) $request->input('type_termin_proyek');
 
-            // Simpan data termin baru
+            /*--------------------------------------------------
+            | 4.  Idempotency check (hindari duplikat persis)
+            |     Contoh kriteria: tanggal + nominal sama
+            --------------------------------------------------*/
+            $exists = $project->projectTermins()
+                ->where('harga_termin', $request->harga_termin_proyek)
+                ->where('tanggal_payment', $request->payment_date_termin_proyek)
+                ->exists();
+
+            if ($exists) {
+                // Jika sudah pernah tersimpan, jangan insert lagi
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'IGNORED',
+                    'message' => 'Termin pembayaran sudah tercatat.',
+                ], 200);
+            }
+
+            /*--------------------------------------------------
+            | 5.  Simpan termin baru
+            --------------------------------------------------*/
             $termin = ProjectTermin::create([
-                'project_id' => $project->id,
-                'harga_termin' => (float) $request->harga_termin_proyek, // Pastikan harga dalam format angka
-                'deskripsi_termin' => $request->deskripsi_termin_proyek,
-                'type_termin' => $typeTermin,
-                'tanggal_payment' => $request->payment_date_termin_proyek,
-                'file_attachment_pembayaran' => is_string($fileAttachment) ? $fileAttachment : null,
+                'project_id'               => $project->id,
+                'harga_termin'             => (float) $request->harga_termin_proyek,
+                'deskripsi_termin'         => $request->deskripsi_termin_proyek,
+                'type_termin'              => $typeTerminStr,
+                'tanggal_payment'          => $request->payment_date_termin_proyek,
+                'file_attachment_pembayaran' => $fileAttachment,
             ]);
 
-            // **Ambil termin terbaru berdasarkan `created_at` (untuk menangani banyak pembayaran dalam satu hari)**
+            /*--------------------------------------------------
+            | 6.  Re-hitung total termin setelah insert
+            --------------------------------------------------*/
+            $totalTermin = $project->projectTermins()->sum('harga_termin');
+            $isLunas     = $totalTermin >= (float) $project->billing;
+
+            /*--------------------------------------------------
+            | 7.  Ambil termin terbaru utk metadata proyek
+            --------------------------------------------------*/
             $latestTermin = $project->projectTermins()
                 ->orderBy('tanggal_payment', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->first();
 
-            // **Hitung total harga_termin dari semua termin terkait proyek ini**
-            $totalHargaTermin = $project->projectTermins()->sum('harga_termin');
-
-            if ($latestTermin) {
-                $typeTerminData = is_array($latestTermin->type_termin) ? $latestTermin->type_termin : json_decode($latestTermin->type_termin, true);
-
-                if (!is_array($typeTerminData)) {
-                    $typeTerminData = [
-                        "id" => (string) ($latestTermin->type_termin ?? ""),
-                        "name" => ($latestTermin->type_termin == Project::TYPE_TERMIN_PROYEK_LUNAS) ? "Lunas" : "Belum Lunas",
-                    ];
-                }
-
-                $project->update([
-                    'file_pembayaran_termin' => is_string($latestTermin->file_attachment_pembayaran) ? $latestTermin->file_attachment_pembayaran : null,
-                    'deskripsi_termin_proyek' => $latestTermin->deskripsi_termin,
-                    'type_termin_proyek' => json_encode($typeTerminData, JSON_UNESCAPED_UNICODE),
-                    'harga_termin_proyek' => (float) $totalHargaTermin,
-                    'payment_date_termin_proyek' => $latestTermin->tanggal_payment,
-                ]);
-            }
+            /*--------------------------------------------------
+            | 8.  Update kolom proyek
+            --------------------------------------------------*/
+            $project->update([
+                'file_pembayaran_termin'     => $latestTermin?->file_attachment_pembayaran,
+                'deskripsi_termin_proyek'    => $latestTermin?->deskripsi_termin,
+                'payment_date_termin_proyek' => $latestTermin?->tanggal_payment,
+                'harga_termin_proyek'        => $totalTermin,
+                'sisa_pembayaran_termin'     => max(0, $project->billing - $totalTermin),
+                'type_termin_proyek'         => json_encode([
+                    'id'   => $isLunas
+                            ? Project::TYPE_TERMIN_PROYEK_LUNAS        // 2
+                            : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS, // 1
+                    'name' => $isLunas ? 'Lunas' : 'Belum Lunas',
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
 
             DB::commit();
 
@@ -857,11 +883,12 @@ class ProjectController extends Controller
                 'status' => 'SUCCESS',
                 'message' => 'Termin pembayaran berhasil ditambahkan!',
             ], 200);
+
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
-                'status' => 'ERROR',
-                'message' => $th->getMessage()
+                'status'  => 'ERROR',
+                'message' => $th->getMessage(),
             ], 500);
         }
     }
