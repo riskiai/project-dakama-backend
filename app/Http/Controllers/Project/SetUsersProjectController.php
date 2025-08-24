@@ -66,11 +66,21 @@ class SetUsersProjectController extends Controller
         try {
             $userIds = array_filter($request->input('user_id', []));
 
+            if (!$request->has('location_id')) {
+                $location = ProjectHasLocation::where('project_id', $request->project_id)->first();
+
+                if (!$location) {
+                    return MessageDakama::warning('Project tidak memiliki lokasi');
+                }
+
+                $request->merge(['location_id' => $location->id]);
+            }
+
             foreach ($userIds as $userId) {
                 UserProjectAbsen::create([
                     'user_id'    => $userId,
                     'project_id' => $request->project_id,
-                    ...($request->has('location_id') ? ['location_id' => $request->location_id] : [])
+                    'location_id' => $request->location_id
                 ]);
             }
 
@@ -93,10 +103,20 @@ class SetUsersProjectController extends Controller
                 return MessageDakama::notFound("Data absen dengan ID $id tidak ditemukan.");
             }
 
+            if (!$request->has('location_id')) {
+                $location = ProjectHasLocation::where('project_id', $request->project_id)->first();
+
+                if (!$location) {
+                    return MessageDakama::warning('Project tidak memiliki lokasi');
+                }
+
+                $request->merge(['location_id' => $location->id]);
+            }
+
             $absen->update([
                 'user_id'    => $request->user_id,
                 'project_id' => $request->project_id,
-                ...($request->has('location_id') ? ['location_id' => $request->location_id] : [])
+                'location_id' => $request->location_id
             ]);
 
             DB::commit();

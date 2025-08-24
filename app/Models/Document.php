@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Document extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     const BUKTI_PEMBELIAN  = 1;
     const BUKTI_PEMBAYARAN = 2;
@@ -24,4 +25,3 @@ class Document extends Model
         return $this->belongsTo(Purchase::class, 'doc_no', 'doc_no');
     }
 }
-
