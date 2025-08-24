@@ -38,6 +38,7 @@ class UpdateRequest extends FormRequest
             'hourly_overtime_salary' => 'required|numeric|min:0',
             'transport' => 'required|numeric|min:0',
             'makan'=> 'required|numeric|min:0',
+            'nomor_karyawan' => 'nullable|string|min:1|max:255',
         ];
     }
 

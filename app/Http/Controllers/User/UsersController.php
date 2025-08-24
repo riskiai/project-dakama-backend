@@ -121,6 +121,7 @@ class UsersController extends Controller
                     'id' => $user->role->id,
                     'role_name' => $user->role->role_name,
                 ],
+                'nomor_karyawan' => $user->nomor_karyawan,
                 'divisi' => [
                     'id' => $user->divisi->id ?? null,
                     'name' => $user->divisi->name ?? null,
@@ -175,6 +176,7 @@ class UsersController extends Controller
                 'password' => bcrypt($randomPassword), // Enkripsi password acak
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
+                'nomor_karyawan' => $request->nomor_karyawan,
                 'status' => User::AKTIF,
             ]);
 
@@ -221,6 +223,9 @@ class UsersController extends Controller
             // Update bidang-bidang yang disertakan dalam permintaan
             if ($request->has('name')) {
                 $userData['name'] = $request->name;
+            }
+              if ($request->has('nomor_karyawan')) {
+                $userData['nomor_karyawan'] = $request->nomor_karyawan;
             }
             if ($request->has('email')) {
                 $userData['email'] = $request->email;
@@ -433,6 +438,7 @@ class UsersController extends Controller
                 'password' => bcrypt($defaultPassword), // Enkripsi password default
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
+                'nomor_karyawan' => $request->nomor_karyawan,
                 'status' => User::AKTIF,
             ]);
 

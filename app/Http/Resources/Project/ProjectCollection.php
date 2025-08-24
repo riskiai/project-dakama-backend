@@ -86,6 +86,7 @@ class ProjectCollection extends ResourceCollection
                 'request_status_owner' => $this->getRequestStatus($project->request_status_owner),
                 'status_bonus_project' => $this->getRequestStatusBonus($project->status_bonus_project),
                 'type_projects' => $this->getDataTypeProject($project->type_projects),
+                'location' => $this->checkProjectLocation($project),
                 'sisa_pembayaran_termin' => $this->getDataSisaPemabayaranTerminProyek($project),
                 "harga_total_termin_proyek" => $this->getHargaTerminProyek($project),
                 "deskripsi_termin_proyek" => $this->getDeskripsiTerminProyek($project),
@@ -116,6 +117,14 @@ class ProjectCollection extends ResourceCollection
         }
 
         return $data;
+    }
+
+    protected function checkProjectLocation(Project $project): string
+    {
+        if ($project->locations()->exists()) {
+            return "Sudah Ada Lokasi";
+        }
+        return "Belum Set Lokasi";
     }
 
     
