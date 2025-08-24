@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AttendanceAdjustment extends Model
 {
+    use SoftDeletes;
+
     const STATUS_WAITING = 'waiting';
     const STATUS_APPROVED = 'approved';
     const STATUS_REJECTED = 'rejected';
