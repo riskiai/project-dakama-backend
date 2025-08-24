@@ -84,7 +84,7 @@ class LocationController extends Controller
             ]);
 
             DB::commit();
-            return MessageDakama::success("location has been created");
+            return MessageDakama::success("location has been created", $project);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
@@ -132,7 +132,7 @@ class LocationController extends Controller
             ]);
 
             DB::commit();
-            return MessageDakama::success("location has been updated");
+            return MessageDakama::success("location has been updated", $location);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
