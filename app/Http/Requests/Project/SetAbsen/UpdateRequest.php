@@ -20,7 +20,7 @@ class UpdateRequest extends FormRequest
     {
         return [
             'project_id' => 'required|exists:projects,id',
-            'location_id' => 'required',
+            'location_id' => 'nullable|exists:project_has_locations,id',
 
             'user_id' => 'required|exists:users,id',
         ];
