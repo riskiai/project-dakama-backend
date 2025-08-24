@@ -75,7 +75,7 @@ class LocationController extends Controller
                 ]);
             }
 
-            $project->locations()->create([
+            $location = $project->locations()->create([
                 'name' => $request->name,
                 'longitude' => $request->longitude,
                 'latitude' => $request->latitude,
@@ -84,7 +84,7 @@ class LocationController extends Controller
             ]);
 
             DB::commit();
-            return MessageDakama::success("location has been created", $project);
+            return MessageDakama::success("location has been created", $location);
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
