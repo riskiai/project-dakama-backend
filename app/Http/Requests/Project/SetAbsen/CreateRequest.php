@@ -20,7 +20,7 @@ class CreateRequest extends FormRequest
     {
         return [
             'project_id' => 'required|exists:projects,id',
-            'location_id' => 'required',
+            'location_id' => 'nullable|exists:project_has_locations,id',
             'user_id'    => 'required|array',
             'user_id.*'  => 'nullable|exists:users,id|numeric|min:1',
         ];
