@@ -86,12 +86,6 @@ class SetUsersProjectController extends Controller
     {
         DB::beginTransaction();
 
-        $location = ProjectHasLocation::find($request->location_id);
-        if (!$location) {
-            return MessageDakama::notFound("Lokasi dengan ID " . $request->location_id . " tidak ditemukan.");
-        }
-
-
         try {
             $absen = UserProjectAbsen::find($id);
 
@@ -102,7 +96,7 @@ class SetUsersProjectController extends Controller
             $absen->update([
                 'user_id'    => $request->user_id,
                 'project_id' => $request->project_id,
-                'location_id' => $request->location_id,
+                ...($request->has('location_id') ? ['location_id' => $request->location_id] : [])
             ]);
 
             DB::commit();
