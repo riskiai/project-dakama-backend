@@ -317,7 +317,7 @@ class ProjectController extends Controller
         ]);
     } */
 
-        public function counting(Request $request)
+    public function counting(Request $request)
     {
         // Mulai query proyek + sum nominal budget (alias: cost_estimate_from_budget)
         $query = Project::query()
@@ -753,9 +753,13 @@ class ProjectController extends Controller
     {
         DB::beginTransaction();
 
+        $project = Project::find($id);
+        if (!$project) {
+            return MessageDakama::notFound('data not found!');
+        }
+
         try {
             // Temukan proyek berdasarkan ID, atau akan gagal jika tidak ditemukan
-            $project = Project::findOrFail($id);
 
             // SpbProject::where('project_id', $id)->update(['project_id' => null]);
 
@@ -871,8 +875,8 @@ class ProjectController extends Controller
                 'sisa_pembayaran_termin'     => max(0, $project->billing - $totalTermin),
                 'type_termin_proyek'         => json_encode([
                     'id'   => $isLunas
-                            ? Project::TYPE_TERMIN_PROYEK_LUNAS        // 2
-                            : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS, // 1
+                        ? Project::TYPE_TERMIN_PROYEK_LUNAS        // 2
+                        : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS, // 1
                     'name' => $isLunas ? 'Lunas' : 'Belum Lunas',
                 ], JSON_UNESCAPED_UNICODE),
             ]);
@@ -883,7 +887,6 @@ class ProjectController extends Controller
                 'status' => 'SUCCESS',
                 'message' => 'Termin pembayaran berhasil ditambahkan!',
             ], 200);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
@@ -1038,8 +1041,10 @@ class ProjectController extends Controller
             * 3. Hapus termin + file
             * ----------------------------------------------------------*/
             foreach ($termins as $termin) {
-                if ($termin->file_attachment_pembayaran &&
-                    Storage::disk('public')->exists($termin->file_attachment_pembayaran)) {
+                if (
+                    $termin->file_attachment_pembayaran &&
+                    Storage::disk('public')->exists($termin->file_attachment_pembayaran)
+                ) {
                     Storage::disk('public')->delete($termin->file_attachment_pembayaran);
                 }
                 $termin->delete();
@@ -1085,7 +1090,7 @@ class ProjectController extends Controller
                 // a. info termin terakhir (nullable)
                 'deskripsi_termin_proyek'   => $latest?->deskripsi_termin,
                 'file_pembayaran_termin'    => $latest?->file_attachment_pembayaran,
-                'payment_date_termin_proyek'=> $latest?->tanggal_payment,
+                'payment_date_termin_proyek' => $latest?->tanggal_payment,
 
                 // b. total & sisa
                 'harga_termin_proyek'       => $totalTermin,
@@ -1094,8 +1099,8 @@ class ProjectController extends Controller
                 // c. status Lunas / Belum Lunas
                 'type_termin_proyek'        => json_encode([
                     'id'   => $isLunas
-                            ? Project::TYPE_TERMIN_PROYEK_LUNAS
-                            : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS,
+                        ? Project::TYPE_TERMIN_PROYEK_LUNAS
+                        : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS,
                     'name' => $isLunas ? 'Lunas' : 'Belum Lunas',
                 ], JSON_UNESCAPED_UNICODE),
             ]);

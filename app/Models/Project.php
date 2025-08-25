@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     const ATTACHMENT_FILE = 'attachment/project/file';
     const ATTACHMENT_FILE_TERMIN_PROYEK = 'attachment/project/terminproyek_file';
@@ -37,7 +38,7 @@ class Project extends Model
     const HIK = 1;
     const DWI = 2;
 
-    const TYPE_TERMIN_PROYEK_NONE  = 0; 
+    const TYPE_TERMIN_PROYEK_NONE  = 0;
     const TYPE_TERMIN_PROYEK_BELUM_LUNAS = 1;
     const TYPE_TERMIN_PROYEK_LUNAS = 2;
 
@@ -104,7 +105,7 @@ class Project extends Model
     protected function generateSequenceNumber($year)
     {
         // Ambil ID proyek terakhir untuk tahun yang sama
-        $lastId = static::where('id', 'like', 'PRO-' . $year . '%')->max('id');
+        $lastId = static::where('id', 'like', 'PRO-' . $year . '%')->withTrashed()->max('id');
 
         if ($lastId) {
             // Ambil nomor urut dari ID terakhir dan increment
@@ -174,7 +175,7 @@ class Project extends Model
         return $this->hasMany(ProjectHasLocation::class, 'project_id', 'id');
     }
 
-     public function purchases()
+    public function purchases()
     {
         return $this->hasMany(Purchase::class, 'project_id', 'id');
     }
