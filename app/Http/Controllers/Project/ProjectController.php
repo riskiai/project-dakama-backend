@@ -530,6 +530,7 @@ class ProjectController extends Controller
                     'request_status_owner' => $project->request_status_owner,
                     'type_projects' => $project->type_projects,
                     'no_dokumen_project' => $project->no_dokumen_project,
+                    'file'                 => $project->file, 
                 ]);
 
                 // Update foreign key di tabel project_user_produk
@@ -566,16 +567,23 @@ class ProjectController extends Controller
             // Simpan perubahan status
             $project->save();
 
-            // Jika ada file baru (attachment_file), hapus file lama dan simpan yang baru
+            // ====== handle file upload dgn aman ======
             if ($request->hasFile('attachment_file')) {
-                if ($project->file) {
-                    Storage::delete($project->file);
+                // hapus file lama di disk 'public' jika ada
+                if ($project->file && Storage::disk('public')->exists($project->file)) {
+                    Storage::disk('public')->delete($project->file);
                 }
-                $project->file = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
+                // simpan file baru ke disk 'public'
+                $path = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
+                $project->file = $path; // set path relatif seperti "attachment/project/file/xxx.png"
             }
 
-            // Update proyek dengan data baru
-            $project->update($request->except(['tasks_id', 'user_id']));
+            // Penting: JANGAN biarkan kolom 'file' atau 'attachment_file' dari request meng-overwrite
+            // kolom 'file' di DB. Juga exclude array pivot.
+            $project->fill(
+                $request->except(['tasks_id', 'user_id', 'attachment_file', 'file'])
+            );
+            $project->save();
 
             // Ambil data produk_id dan user_id dari request
             $tasksIds = $request->input('tasks_id', []);

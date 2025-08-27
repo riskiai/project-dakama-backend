@@ -67,6 +67,12 @@ class ProjectCollection extends ResourceCollection
                             ];
                 }), */
                 
+                /* 'budgets' => ($vals = $project
+                                    ->budgetsDirect()
+                                    ->orderByDesc('created_at')
+                                    ->pluck('nominal')
+                    ) && $vals->isNotEmpty() ? $vals->toArray() : null, */
+
                 'budgets' => $project
                 ->budgetsDirect()
                 ->orderByDesc('created_at')   // terbaru dulu
