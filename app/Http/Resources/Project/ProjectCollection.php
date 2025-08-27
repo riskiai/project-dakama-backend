@@ -73,11 +73,15 @@ class ProjectCollection extends ResourceCollection
                                     ->pluck('nominal')
                     ) && $vals->isNotEmpty() ? $vals->toArray() : null, */
 
-                'budgets' => $project
+                /* 'budgets' => $project
                 ->budgetsDirect()
-                ->orderByDesc('created_at')   // terbaru dulu
-                ->pluck('nominal')            // ambil hanya field nominal
-                ->toArray(),
+                ->orderByDesc('created_at')  
+                ->pluck('nominal')          
+                ->toArray(), */
+
+                'budgets_total' => (float) $project
+                ->budgetsDirect()
+                ->sum('nominal'),
 
                 'billing' => $project->billing,
                 'margin'  => $this->formatMargin($project),
