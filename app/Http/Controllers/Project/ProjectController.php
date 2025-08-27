@@ -567,24 +567,16 @@ class ProjectController extends Controller
             // Simpan perubahan status
             $project->save();
 
-            $oldFile = $project->file;
-
+            // Jika ada file baru (attachment_file), hapus file lama dan simpan yang baru
             if ($request->hasFile('attachment_file')) {
-                // Simpan file baru dulu (jangan hapus yang lama dulu)
-                $newPath = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
-                $project->file = $newPath;
+                if ($project->file) {
+                    Storage::delete($project->file);
+                }
+                $project->file = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
             }
 
-            // exclude field yang tidak boleh overwrite kolom/file & pivot
-            $project->fill(
-                $request->except(['tasks_id', 'user_id', 'attachment_file', 'file'])
-            );
-            $project->save();
-
-            // Hapus file lama setelah update sukses & hanya jika berbeda
-            if (isset($newPath) && $oldFile && $oldFile !== $newPath && Storage::disk('public')->exists($oldFile)) {
-                Storage::disk('public')->delete($oldFile);
-            }
+            // Update proyek dengan data baru
+            $project->update($request->except(['tasks_id', 'user_id']));
 
             // Ambil data produk_id dan user_id dari request
             $tasksIds = $request->input('tasks_id', []);
