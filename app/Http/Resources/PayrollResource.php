@@ -31,6 +31,8 @@ class PayrollResource extends JsonResource
             "notes" => $this->notes,
             "reason_approval" => $this->reason_approval,
             "status" => $this->status,
+            "document_preview" => route('payroll.document', ['id' => $this->id, 'type' => 'preview']),
+            "document_download" => route('payroll.document', ['id' => $this->id, 'type' => 'download']),
             "approved_at" => $this->approved_at,
             "created_at" => $this->created_at,
             "updated_at" => $this->updated_at
