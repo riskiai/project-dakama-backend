@@ -35,7 +35,7 @@ class ProjectCollection extends ResourceCollection
                     'name' => optional($project->company)->name,
                     'contact_type' => optional($project->company)->contactType?->name,
                 ],
-               'tasks' => $project
+               /* 'tasks' => $project
                     ->tasksDirect()                     // ← pakai ()
                     ->select('tasks.*')                 // samakan kolom
                     ->union(
@@ -50,9 +50,9 @@ class ProjectCollection extends ResourceCollection
                             'type_pekerjaan' => $task->type == \App\Models\Task::JASA ? 'Jasa' : 'Material',
                             'nominal'        => $task->nominal,
                         ];
-                    }),
+                    }), */
 
-                'budgets' => $project
+               /*  'budgets' => $project
                         ->budgetsDirect()                // gunakan query builder
                         ->orderByDesc('created_at')      // terbaru dahulu
                         ->get()
@@ -65,7 +65,14 @@ class ProjectCollection extends ResourceCollection
                                 'unit'          => $budget->unit,
                                 'stok'          => $budget->stok,
                             ];
-                }),
+                }), */
+                
+                'budgets' => $project
+                ->budgetsDirect()
+                ->orderByDesc('created_at')   // terbaru dulu
+                ->pluck('nominal')            // ambil hanya field nominal
+                ->toArray(),
+
                 'billing' => $project->billing,
                 'margin'  => $this->formatMargin($project),
                 'percent' => $this->formatPercent(
@@ -84,8 +91,8 @@ class ProjectCollection extends ResourceCollection
                 ],
                 // 'status_step_project' => $this->getStepStatus($project->status_step_project),
                 'request_status_owner' => $this->getRequestStatus($project->request_status_owner),
-                'status_bonus_project' => $this->getRequestStatusBonus($project->status_bonus_project),
-                'type_projects' => $this->getDataTypeProject($project->type_projects),
+                // 'status_bonus_project' => $this->getRequestStatusBonus($project->status_bonus_project),
+                // 'type_projects' => $this->getDataTypeProject($project->type_projects),
                 'location' => $this->checkProjectLocation($project),
                 'sisa_pembayaran_termin' => $this->getDataSisaPemabayaranTerminProyek($project),
                 "harga_total_termin_proyek" => $this->getHargaTerminProyek($project),
