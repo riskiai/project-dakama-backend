@@ -7,6 +7,7 @@ use App\Http\Resources\PayrollResource;
 use App\Jobs\SendEmailApprovalJob;
 use App\Models\Attendance;
 use App\Models\MutationLoan;
+use App\Models\OperationalHour;
 use App\Models\Overtime;
 use App\Models\Payroll;
 use App\Models\Role;
@@ -15,6 +16,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 // Reference : OnvertimeController, AttendanceController, LoanController
 class PayrollController extends Controller
@@ -289,5 +293,99 @@ class PayrollController extends Controller
             "total_overtime" => (int) $payroll->total_overtime,
             "total_salary" => ($payroll->total_daily_salary + $payroll->total_loan - $payroll->total_late_cut + $payroll->total_overtime),
         ]);
+    }
+
+    public function getDocument($id, $type)
+    {
+        if (!in_array($type, ['preview', 'download'])) {
+            abort(404);
+        }
+
+        $payroll = Payroll::with(['user.role', 'user.salary'])->find($id);
+        if (!$payroll) {
+            abort(404);
+        }
+
+        $operationalHour = OperationalHour::first();
+
+        $dateTime = explode(', ', $payroll->datetime);
+        $attendances = Attendance::with(['project.company.contactType', 'task', 'overtime'])
+            ->where('type', 0)
+            ->whereBetween('start_time', $dateTime)
+            ->get()
+            ->keyBy(function ($row) {
+                return Carbon::parse($row->start_time)->format('Y-m-d');
+            });
+        $overtimes = Attendance::with(['project.company.contactType', 'task', 'overtime'])
+            ->where('type', 1)
+            ->whereBetween('start_time', $dateTime)
+            ->get()
+            ->keyBy(function ($row) {
+                return Carbon::parse($row->start_time)->format('Y-m-d');
+            });
+
+        $slip = [
+            "company_name" => config('app.name'),
+            "target_name" =>  $payroll->user->name,
+            "target_poss" => $payroll->user->role->role_name,
+            "payout_account" => "BAK BUMI ARKAT - 1022 118676",
+            "range_date" => $payroll->datetime,
+            "last_placement" => $attendances->last()->project->name ?? null,
+            "last_project" => $attendances->last()->task->nama_task ?? null,
+            "attendances" => $attendances,
+            "overtimes" => $overtimes,
+            "reports" => [
+                [
+                    "label" => "JHK",
+                    "amount" => "{$payroll->total_attendance} Hr",
+                    "rate" => $payroll->user->salary->daily_salary,
+                    "total" => $payroll->total_daily_salary,
+                ],
+                [
+                    "label" => "JJL",
+                    "amount" => "{$overtimes->count()} Jam",
+                    "rate" => $payroll->user->salary->hourly_overtime_salary,
+                    "total" => $payroll->total_overtime,
+                ],
+                [
+                    "label" => "Makan",
+                    "amount" => null,
+                    "rate" => $payroll->user->salary->makan,
+                    "total" => $attendances->sum('makan') + $overtimes->sum('makan'),
+                ],
+                [
+                    "label" => "Total Bonus",
+                    "amount" => "{$payroll->total_attendance} Jam",
+                    "rate" => $operationalHour->bonus,
+                    "total" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->sum('bonus_ontime'),
+                ],
+            ],
+            "bonus_jhk" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->count(),
+            "bonus" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->sum('bonus_ontime'),
+            "kasbon" => $payroll->total_loan,
+        ];
+
+        // dd($slip);
+
+        $html = view('payroll.document.slip', [
+            "slip" => $slip,
+        ])->render();
+
+        // return $html;
+
+        $pdf = PDF::loadHTML($html)->setPaper('A4', 'landscape')->setOptions([
+            'isRemoteEnabled' => true,
+            'isHtml5ParserEnabled' => true,
+        ]);
+
+        $pdf->render();
+
+
+        if ($type == 'preview') {
+            return $pdf->stream();
+        }
+
+        $date = Carbon::now()->format('YmdHis');
+        return $pdf->download("{$date}-payroll-" . Str::slug($payroll->user->name, "_") . ".pdf");
     }
 }
