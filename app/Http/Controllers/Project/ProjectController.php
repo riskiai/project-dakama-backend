@@ -568,20 +568,22 @@ class ProjectController extends Controller
             $project->save();
 
             if ($request->hasFile('attachment_file')) {
-                // hapus file lama di disk 'public' jika ada
+                // hapus file lama kalau ada
                 if ($project->file && Storage::disk('public')->exists($project->file)) {
                     Storage::disk('public')->delete($project->file);
                 }
-                // simpan file baru ke disk 'public'
+
+                // simpan file baru ke disk public
                 $path = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
-                $project->file = $path; // contoh: "attachment/project/file/xxx.png"
+                $project->file = $path;
             }
 
-            // Jangan biarkan kolom file ditimpa oleh body request
+            // JANGAN izinkan kolom file ketimpa dari request
             $project->fill(
                 $request->except(['tasks_id', 'user_id', 'attachment_file', 'file'])
             );
             $project->save();
+
 
             // Ambil data produk_id dan user_id dari request
             $tasksIds = $request->input('tasks_id', []);
