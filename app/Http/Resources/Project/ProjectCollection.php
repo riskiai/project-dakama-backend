@@ -7,7 +7,6 @@ use App\Models\Project;
 use App\Models\Purchase;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class ProjectCollection extends ResourceCollection
@@ -92,15 +91,10 @@ class ProjectCollection extends ResourceCollection
                 // 'margin' => $project->margin,
                 // 'cost_estimate' => $project->cost_estimate,
                 'cost_progress_project' => $this->costProgress($project),
-                /* 'file_attachment' => [
+                'file_attachment' => [
                     'name' => $project->file ? date('Y', strtotime($project->created_at)) . '/' . $project->id . '.' . pathinfo($project->file, PATHINFO_EXTENSION) : null,
                     'link' => $project->file ? asset("storage/$project->file") : null,
-                ], */
-                'file_attachment' => [
-                    'name' => $project->file ? basename($project->file) : null,
-                    'link' => $project->file ? Storage::url($project->file) : null,
                 ],
-
                 // 'status_step_project' => $this->getStepStatus($project->status_step_project),
                 'request_status_owner' => $this->getRequestStatus($project->request_status_owner),
                 // 'status_bonus_project' => $this->getRequestStatusBonus($project->status_bonus_project),
