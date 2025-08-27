@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Purchase;
 
+use App\Models\Purchase;
 use App\Facades\MessageDakama;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class UpdateRequest extends FormRequest
 {
@@ -30,9 +32,9 @@ class UpdateRequest extends FormRequest
             'project_id' => 'required|exists:projects,id',
 
             // ── array produk ──
-            'products'                     => 'required|array|min:1',
-            'products.*.company_id'        => 'required|exists:companies,id',
-            'products.*.product_name'      => 'required|string|max:255',
+            'products'                     => 'nullable|array|min:1',
+            'products.*.company_id'        => 'nullable|exists:companies,id',
+            'products.*.product_name'      => 'nullable|string|max:255',
             'products.*.harga'             => 'nullable|numeric|min:0',
             'products.*.stok'              => 'nullable|integer|min:1',
             'products.*.ppn'               => 'nullable|numeric|min:0|max:100',
@@ -47,6 +49,15 @@ class UpdateRequest extends FormRequest
         // if ($this->purchase_id == 1) {
         //     $rules['project_id'] = 'required|exists:projects,id';
         // }
+
+         // >>> Khusus EVENT: purchase_event_type wajib & valid; selain EVENT: di-drop
+        $rules['purchase_event_type'] = [
+            'nullable',
+            'exclude_unless:purchase_id,' . Purchase::TYPE_EVENT,
+            'required_if:purchase_id,' . Purchase::TYPE_EVENT,
+            'integer',
+            Rule::in([Purchase::TYPE_EVENT_PURCHASE_MATERIALS, Purchase::TYPE_EVENT_PURCHASE_SERVICES]),
+        ];
 
         return $rules;
     }

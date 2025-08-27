@@ -364,6 +364,10 @@ class PurchaseController extends Controller
             /* ── 1. HEADER ─────────────────────────────── */
             $category   = PurchaseCategory::findOrFail($request->purchase_category_id);
 
+              if ((int)$request->purchase_id !== Purchase::TYPE_EVENT) {
+                $request->merge(['purchase_event_type' => null]);
+            }
+
             $headerData = $request->except(['products', 'products_id', 'attachment_file']) + [
                 'doc_no'             => $this->generateDocNo($category),
                 'doc_type'           => Str::upper($category->name),
@@ -466,6 +470,10 @@ class PurchaseController extends Controller
 
         DB::beginTransaction();
         try {
+             if ((int)$request->purchase_id !== Purchase::TYPE_EVENT) {
+                $request->merge(['purchase_event_type' => null]);
+            }
+
             /* 3. HEADER – ambil field kecuali produk & lampiran */
             $headerFields = $request->except(['products', 'attachment_file']);
             if ($headerFields) {

@@ -36,6 +36,9 @@ class Purchase extends Model
     const TYPE_EVENT = 1;
     const TYPE_OPERATIONAL = 2;
 
+    const TYPE_EVENT_PURCHASE_MATERIALS = 1;
+    const TYPE_EVENT_PURCHASE_SERVICES = 2; 
+
     protected $fillable = [
         'doc_no',
         'doc_type',
@@ -55,6 +58,7 @@ class Purchase extends Model
         'reject_note',
         'tanggal_pembayaran_purchase',
         'user_id',
+        'purchase_event_type',
     ];
 
      protected $dates = ['created_at', 'updated_at'];

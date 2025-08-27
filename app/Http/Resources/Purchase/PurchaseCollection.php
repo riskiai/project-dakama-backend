@@ -132,6 +132,9 @@ class PurchaseCollection extends ResourceCollection
                       ]
                     : null,
 
+                "purchase_event_type" => $this->resolvePurchaseEventType($purchase),
+
+
                  "products" => $purchase->productCompanies->map(function ($prod) {
 
                     /* hitung dasar (harga × stok) */
@@ -197,6 +200,25 @@ class PurchaseCollection extends ResourceCollection
 
         return $data;
     }
+
+    protected function resolvePurchaseEventType($purchase): ?array
+    {
+        // hanya untuk purchase event
+        if ((int)$purchase->purchase_id !== Purchase::TYPE_EVENT) {
+            return null;
+        }
+
+        $map = [
+            Purchase::TYPE_EVENT_PURCHASE_MATERIALS => 'Materials',
+            Purchase::TYPE_EVENT_PURCHASE_SERVICES  => 'Services',
+        ];
+
+        $id   = $purchase->purchase_event_type ? (int)$purchase->purchase_event_type : null;
+        $name = $map[$id] ?? null;
+
+        return ($id && $name) ? ['id' => $id, 'name' => $name] : null;
+    }
+
 
     protected function calculateStatusId($purchase, $log)
     {

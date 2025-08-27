@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Purchase;
 
+use App\Models\Purchase;
 use App\Facades\MessageDakama;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class CreateRequest extends FormRequest
 {
@@ -52,6 +54,16 @@ class CreateRequest extends FormRequest
             $rules['attachment_file']      = 'array';
             $rules['attachment_file.*']    = 'nullable|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072';
         }
+
+         $rules['purchase_event_type'] = [
+            'nullable',
+            // kalau bukan EVENT, field ini dikeluarkan dari request (tidak akan di-mass assign)
+            'exclude_unless:purchase_id,' . Purchase::TYPE_EVENT,
+            // kalau EVENT, field ini wajib
+            'required_if:purchase_id,' . Purchase::TYPE_EVENT,
+            'integer',
+            Rule::in([Purchase::TYPE_EVENT_PURCHASE_MATERIALS, Purchase::TYPE_EVENT_PURCHASE_SERVICES]),
+        ];
 
         // Hanya untuk Event
         // if ($this->purchase_id == 1) {
