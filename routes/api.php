@@ -119,6 +119,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('setuser-project-absen-all', [SetUsersProjectController::class, 'indexAll']);
         Route::post('setuser-project-absen-create', [SetUsersProjectController::class, 'store']);
         Route::put('setuser-project-absen-update/{id}', [SetUsersProjectController::class, 'update']);
+        Route::put('setuser-project-absen-bulk-update/{project}',
+            [SetUsersProjectController::class, 'bulkUpdate']
+        );
         Route::get('setuser-project-absen-show/{id}', [SetUsersProjectController::class, 'show']);
         Route::delete('setuser-project-absen-delete/{id}', [SetUsersProjectController::class, 'delete']);
 

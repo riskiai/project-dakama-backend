@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers\Project;
 
+use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Facades\MessageDakama;
 use App\Models\UserProjectAbsen;
+use App\Models\ProjectHasLocation;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Project\SetAbsen\CreateRequest;
 use App\Http\Requests\Project\SetAbsen\UpdateRequest;
+use App\Http\Requests\Project\SetAbsen\BulkUpdateRequest;
 use App\Http\Resources\Project\SetUserProjectAbsenCollection;
 use App\Http\Resources\Project\SetShowUserProjectAbsenCollection;
-use App\Models\ProjectHasLocation;
 
 class SetUsersProjectController extends Controller
 {
@@ -124,6 +126,96 @@ class SetUsersProjectController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error("Gagal mengupdate absen: " . $th->getMessage());
+        }
+    }
+
+     public function bulkUpdate(BulkUpdateRequest $request, string $project)
+    {
+        $projectId = (string) $project; // contoh: "PRO-25-013"
+
+        // Pastikan project ada
+        if (!Project::where('id', $projectId)->exists()) {
+            return MessageDakama::notFound("Project {$projectId} tidak ditemukan.");
+        }
+
+        $payload = collect($request->input('users_detail', []))
+                    ->map(fn($row) => [
+                        'user_id'     => (int) $row['user_id'],
+                        'location_id' => $row['location_id'] ?? null,
+                    ]);
+
+        DB::beginTransaction();
+
+        try {
+            // Default lokasi (jika ada item yg location_id = null)
+            $defaultLoc = ProjectHasLocation::where('project_id', $projectId)->first();
+
+            // Normalisasi location_id null -> default
+            $payload = $payload->map(function ($row) use ($defaultLoc, $projectId) {
+                if (empty($row['location_id'])) {
+                    if (!$defaultLoc) {
+                        throw new \RuntimeException("Project {$projectId} tidak memiliki lokasi default.");
+                    }
+                    $row['location_id'] = $defaultLoc->id;
+                }
+                return $row;
+            });
+
+            $payloadUserIds = $payload->pluck('user_id')->unique()->values();
+
+            // === (1) HAPUS yang tidak ada di payload (sinkronisasi) ===
+            UserProjectAbsen::where('project_id', $projectId)
+                ->whereNotIn('user_id', $payloadUserIds)
+                ->delete(); // soft delete karena model pakai SoftDeletes
+
+            // === (2) UPSERT / UPDATE yang ada di payload ===
+            $affectedIds = [];
+            foreach ($payload as $row) {
+                $absen = UserProjectAbsen::updateOrCreate(
+                    ['project_id' => $projectId, 'user_id' => $row['user_id']],
+                    ['location_id' => $row['location_id']]
+                );
+                $affectedIds[] = $absen->id;
+            }
+
+            DB::commit();
+
+            // Ambil ulang SEMUA data untuk project ini setelah sinkronisasi
+            $results = UserProjectAbsen::with([
+                'user.role', 'user.divisi', 'project', 'location',
+            ])->where('project_id', $projectId)->get();
+
+            return response()->json([
+                'status'      => MessageDakama::SUCCESS ?? 'success',
+                'status_code' => 200,
+                'message'     => "Bulk sync/update berhasil untuk project {$projectId}.",
+                'data'        => $results->map(function ($item) {
+                    return [
+                        'id'      => $item->id,
+                        'user'    => [
+                            'id'    => data_get($item, 'user.id'),
+                            'name'  => data_get($item, 'user.name'),
+                            'role'  => [
+                                'id'   => data_get($item, 'user.role_id'),
+                                'name' => data_get($item, 'user.role.role_name'),
+                            ],
+                            'divisi'=> [
+                                'id'   => data_get($item, 'user.divisi_id'),
+                                'name' => data_get($item, 'user.divisi.name'),
+                            ],
+                        ],
+                        'project' => [
+                            'id'   => data_get($item, 'project.id'),
+                            'name' => data_get($item, 'project.name'),
+                        ],
+                        'location'=> $item->location,
+                    ];
+                }),
+            ], 200);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error("Gagal bulk sync/update: " . $th->getMessage());
         }
     }
 
