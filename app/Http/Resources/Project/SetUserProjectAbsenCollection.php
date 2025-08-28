@@ -17,6 +17,18 @@ class SetUserProjectAbsenCollection extends ResourceCollection
                 'user'       => [
                     'id'   => $item->user_id,
                     'name' => $item->user->name ?? null,
+
+                      'role'    => [
+                        'id'   => $item->user->role_id ?? null,
+                        'name' => optional($item->user->role)->role_name, // sesuaikan kolom nama role
+                    ],
+
+                    // Tambah divisi
+                    'divisi'  => [
+                        'id'   => $item->user->divisi_id ?? null,
+                        'name' => optional($item->user->divisi)->name,    // sesuaikan kolom nama divisi
+                    ],
+                    
                 ],
                 'project'    => [
                     'id'   => $item->project_id,
