@@ -148,7 +148,9 @@ class OvertimeController extends Controller
         $validator = Validator::make($request->all(), [
             'project_id' => 'required|exists:projects,id',
             'task_id' => 'required|exists:tasks,id',
-            'request_date' => 'required|date_format:Y-m-d H:i:s',
+            'request_date' => 'required|date_format:Y-m-d',
+            'start_time'    => 'required|date_format:H:i',
+            'end_time'      => 'required|date_format:H:i|after:start_time',
             'reason' => 'max:255',
         ]);
 
@@ -164,8 +166,12 @@ class OvertimeController extends Controller
             $overtime->update([
                 'project_id' => $request->project_id,
                 'task_id' => $request->task_id,
+                'pic_id' => $request->pic_id,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time,
+                'duration' => Helper::calculateDurationTime($request->start_time, $request->end_time),
             ]);
 
             DB::commit();
