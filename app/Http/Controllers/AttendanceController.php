@@ -72,6 +72,10 @@ class AttendanceController extends Controller
             $query->where('type', $request->type);
         });
 
+        $query->when($request->has('sort_by') && $request->filled('sort_by') && $request->has('sort_type') && $request->filled('sort_type'), function ($query) use ($request) {
+            $query->orderBy($request->sort_by ?? 'id', $request->sort_type ?? 'desc');
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $adjs = $query->paginate($request->per_page);
         } else {
@@ -385,6 +389,10 @@ class AttendanceController extends Controller
 
         $query->when($request->has('pic_id') && $request->filled('pic_id'), function ($query) use ($request) {
             $query->where('pic_id', $request->pic_id);
+        });
+
+        $query->when($request->has('sort_by') && $request->filled('sort_by') && $request->has('sort_type') && $request->filled('sort_type'), function ($query) use ($request) {
+            $query->orderBy($request->sort_by ?? 'id', $request->sort_type ?? 'desc');
         });
 
         $adjs = $query->paginate($request->per_page);

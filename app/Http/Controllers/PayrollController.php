@@ -57,6 +57,10 @@ class PayrollController extends Controller
             $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
         });
 
+        $query->when($request->has('sort_by') && $request->filled('sort_by') && $request->has('sort_type') && $request->filled('sort_type'), function ($query) use ($request) {
+            $query->orderBy($request->sort_by ?? 'id', $request->sort_type ?? 'desc');
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $payrolls = $query->paginate($request->per_page);
         } else {

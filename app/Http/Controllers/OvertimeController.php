@@ -55,6 +55,10 @@ class OvertimeController extends Controller
             $query->whereBetween('request_date', [$request->start_date, $request->end_date]);
         });
 
+        $query->when($request->has('sort_by') && $request->filled('sort_by') && $request->has('sort_type') && $request->filled('sort_type'), function ($query) use ($request) {
+            $query->orderBy($request->sort_by ?? 'id', $request->sort_type ?? 'desc');
+        });
+
         if ($request->has('paginate') && $request->filled('paginate') && $request->paginate == 'true') {
             $overtimes = $query->paginate($request->per_page);
         } else {
@@ -142,7 +146,10 @@ class OvertimeController extends Controller
 
         $overtime = Overtime::with(['task' => function ($query) {
             $query->withTrashed();
-        }])->where('user_id', $user->id)->whereDate('request_date', now())->first();
+        }])->where('user_id', $user->id)
+            ->whereDate('request_date', now())
+            ->where('status', Overtime::STATUS_APPROVED)
+            ->first();
         if (!$overtime) {
             return MessageDakama::notFound('Overtime not found');
         }
