@@ -61,7 +61,7 @@ class SetUsersProjectController extends Controller
         return new SetUserProjectAbsenCollection($absensi);
     }
 
-    public function store(CreateRequest $request)
+    /* public function store(CreateRequest $request)
     {
         DB::beginTransaction();
 
@@ -92,7 +92,53 @@ class SetUsersProjectController extends Controller
             DB::rollBack();
             return MessageDakama::error("Gagal mendaftarkan absen: " . $th->getMessage());
         }
+    } */
+
+    public function store(CreateRequest $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $userIds = array_map('intval', array_filter($request->input('user_id', [])));
+
+            // Tentukan location_id (default jika kosong)
+            $locationId = $request->input('location_id');
+            if (!$locationId) {
+                $location = ProjectHasLocation::where('project_id', $request->project_id)->first();
+                if (!$location) {
+                    return MessageDakama::warning('Project tidak memiliki lokasi');
+                }
+                $locationId = $location->id;
+            }
+
+            // Cek lagi siapa yang sudah terdaftar (agar message lebih informatif)
+            $already = UserProjectAbsen::where('project_id', $request->project_id)
+                        ->whereNull('deleted_at')
+                        ->whereIn('user_id', $userIds)
+                        ->pluck('user_id')
+                        ->toArray();
+
+            if (!empty($already)) {
+                DB::rollBack();
+                return MessageDakama::warning('Beberapa user sudah terdaftar pada project ini: [' . implode(', ', $already) . '].');
+            }
+
+            foreach ($userIds as $userId) {
+                UserProjectAbsen::create([
+                    'user_id'     => $userId,
+                    'project_id'  => $request->project_id,
+                    'location_id' => $locationId,
+                ]);
+            }
+
+            DB::commit();
+            return MessageDakama::success('Pendaftaran absensi berhasil dibuat untuk ' . count($userIds) . ' pengguna.');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error("Gagal mendaftarkan absen: " . $th->getMessage());
+        }
     }
+
 
     public function update(UpdateRequest $request, $id)
     {
