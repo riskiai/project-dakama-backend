@@ -29,6 +29,12 @@ class ProjectController extends Controller
         // Eager load untuk mengurangi query N+1
         $query->with(['company', 'user', 'tasks', 'tenagaKerja']);
 
+        $authUser = auth()->user();
+
+        if ($this->isSupervisor($authUser) || $this->isKaryawan($authUser)) {
+            $query->forAbsensiUser($authUser->id);
+        }
+
         // Filter berdasarkan status_bonus_project
         if ($request->has('status_bonus_project')) {
             $statusBonus = $request->status_bonus_project;
@@ -181,6 +187,42 @@ class ProjectController extends Controller
             ->paginate($request->per_page);
 
         return new ProjectCollection($projects);
+    }
+
+     private function isSupervisor($user): bool
+    {
+        if (!$user) return false;
+
+        // Cek lewat relasi single-role
+        $name = optional($user->role)->role_name;
+        if ($name && strcasecmp($name, 'Supervisor') === 0) return true;
+
+        // Kalau ada konstanta Role::SUPERVISOR
+        if (defined(Role::class.'::SUPERVISOR') && (int)$user->role_id === (int)Role::SUPERVISOR) return true;
+
+        // Spatie multi-role
+        if (method_exists($user, 'getRoleNames')) {
+            return $user->getRoleNames()->contains(fn($r) => strcasecmp($r, 'Supervisor') === 0);
+        }
+        return false;
+    }
+
+    private function isKaryawan($user): bool
+    {
+        if (!$user) return false;
+
+        // Cek lewat relasi single-role
+        $name = optional($user->role)->role_name;
+        if ($name && strcasecmp($name, 'Karyawan') === 0) return true;
+
+        // Kalau ada konstanta Role::KARYAWAN
+        if (defined(Role::class.'::KARYAWAN') && (int)$user->role_id === (int)Role::KARYAWAN) return true;
+
+        // Spatie multi-role
+        if (method_exists($user, 'getRoleNames')) {
+            return $user->getRoleNames()->contains(fn($r) => strcasecmp($r, 'Karyawan') === 0);
+        }
+        return false;
     }
 
     public function projectAll()

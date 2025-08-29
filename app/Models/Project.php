@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class Project extends Model
 {
@@ -184,5 +186,16 @@ class Project extends Model
     public function payrolls()
     {
         return $this->hasMany(Payroll::class, 'project_id', 'id');
+    }
+
+    public function scopeForAbsensiUser(Builder $q, int $userId): Builder
+    {
+        return $q->whereExists(function ($sub) use ($userId) {
+            $sub->select(DB::raw(1))
+                ->from('users_project_absen as upa')
+                ->whereColumn('upa.project_id', 'projects.id')
+                ->where('upa.user_id', $userId)
+                ->whereNull('upa.deleted_at');
+        });
     }
 }
