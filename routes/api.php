@@ -197,6 +197,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('overtime')->group(function () {
         Route::get('/index', [OvertimeController::class, 'index']);
         Route::post('/store', [OvertimeController::class, 'store']);
+        Route::get('/show/current', [OvertimeController::class, 'showCurrent']);
         Route::get('/show/{id}', [OvertimeController::class, 'show']);
         Route::put('/update/{id}', [OvertimeController::class, 'update']);
         Route::put('/approval/{id}', [OvertimeController::class, 'approval']);

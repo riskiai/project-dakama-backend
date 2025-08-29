@@ -136,6 +136,20 @@ class OvertimeController extends Controller
         return new OvertimeResource($overtime);
     }
 
+    public function showCurrent()
+    {
+        $user = Auth::user();
+
+        $overtime = Overtime::with(['task' => function ($query) {
+            $query->withTrashed();
+        }])->where('user_id', $user->id)->whereDate('request_date', now())->first();
+        if (!$overtime) {
+            return MessageDakama::notFound('Overtime not found');
+        }
+
+        return new OvertimeResource($overtime);
+    }
+
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -203,6 +217,12 @@ class OvertimeController extends Controller
                 'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
                 'message' => $validator->errors()
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user = Auth::user();
+
+        if ($user->hasRole(Role::KARYAWAN)) {
+            return MessageDakama::warning("You can't process Overtime!");
         }
 
         if (!$overtime->user->salary) {

@@ -118,9 +118,9 @@ class AttendanceController extends Controller
             return MessageDakama::warning("User not attendance now!");
         }
 
-        // if ($attendance->status == Attendance::ATTENDANCE_OUT) {
-        //     return MessageDakama::warning("User already attendance out!");
-        // }
+        if ($attendance->status == Attendance::ATTENDANCE_OUT) {
+            return MessageDakama::warning("User already attendance out!");
+        }
 
         return new AttendanceResource($attendance);
     }
