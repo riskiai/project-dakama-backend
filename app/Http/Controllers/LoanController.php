@@ -198,8 +198,8 @@ class LoanController extends Controller
             return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
         }
 
-        if (in_array($loan->status, [EmployeeLoan::STATUS_APPROVED, EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_CANCELLED])) {
-            return MessageDakama::warning("Overtime has been {$loan->status}, can't be processed!");
+        if ($loan->status == EmployeeLoan::STATUS_APPROVED && in_array($request->status, [EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_WAITING])) {
+            return MessageDakama::warning("Loan has been approved, can't be {$request->status}!");
         }
 
         $loan->load(['pic', 'user']);
@@ -222,6 +222,21 @@ class LoanController extends Controller
 
                 $loan->user()->update([
                     'loan' => $loan->user->loan + $loan->nominal
+                ]);
+            }
+
+            if ($request->status == EmployeeLoan::STATUS_CANCELLED) {
+                $loan->mutations()->create([
+                    'user_id' => $loan->user_id,
+                    'decrease' => $loan->nominal,
+                    'latest' => $loan->user->loan,
+                    'total' => $loan->user->loan - $loan->nominal,
+                    'description' => "Loan {$loan->nominal} cancelled by {$user->name}",
+                    'created_by' => $user->id
+                ]);
+
+                $loan->user()->update([
+                    'loan' => $loan->user->loan - $loan->nominal
                 ]);
             }
 

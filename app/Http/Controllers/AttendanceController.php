@@ -539,8 +539,8 @@ class AttendanceController extends Controller
             return MessageDakama::warning("User not registered of a salary!");
         }
 
-        if (in_array($adj->status, [AttendanceAdjustment::STATUS_APPROVED, AttendanceAdjustment::STATUS_CANCELLED, AttendanceAdjustment::STATUS_APPROVED])) {
-            return MessageDakama::warning("Adjustment has been already " . $adj->status . "!");
+        if ($adj->status == AttendanceAdjustment::STATUS_APPROVED && in_array($request->status, [AttendanceAdjustment::STATUS_REJECTED, AttendanceAdjustment::STATUS_WAITING])) {
+            return MessageDakama::warning("Loan has been approved, can't be {$request->status}!");
         }
 
         try {
@@ -563,6 +563,16 @@ class AttendanceController extends Controller
                     'late_cut' => $lateCut,
                     'bonus_ontime' => $bonusOnTime,
                     'late_minutes' => $lateCut != 0 ? abs($newStartTime->diffInMinutes($operationalHour->late_time)) : 0
+                ]);
+            }
+
+            if ($request->status == AttendanceAdjustment::STATUS_CANCELLED) {
+                $adj->attendance()->update([
+                    'start_time' => $adj->old_start_time,
+                    'end_time' => $adj->old_end_time,
+                    'late_cut' => 0,
+                    'bonus_ontime' => 0,
+                    'late_minutes' => 0
                 ]);
             }
 

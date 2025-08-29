@@ -236,8 +236,8 @@ class OvertimeController extends Controller
             return MessageDakama::warning("User not registered of a salary!");
         }
 
-        if (in_array($overtime->status, [Overtime::STATUS_APPROVED, Overtime::STATUS_REJECTED, Overtime::STATUS_CANCELLED])) {
-            return MessageDakama::warning("Overtime has been {$overtime->status}, can't be processed!");
+        if ($overtime->status == Overtime::STATUS_APPROVED && in_array($request->status, [Overtime::STATUS_REJECTED, Overtime::STATUS_WAITING])) {
+            return MessageDakama::warning("Loan has been approved, can't be {$request->status}!");
         }
 
         try {
@@ -252,6 +252,11 @@ class OvertimeController extends Controller
                 if ($request->is_overtime_meal == true) {
                     $formData['makan'] = $request->has('makan') ? $request->makan : $overtime->user->salary->makan ?? 0;
                 }
+            }
+
+            if ($request->status == Overtime::STATUS_CANCELLED) {
+                $formData['salary_overtime'] = 0;
+                $formData['makan'] = 0;
             }
 
             $overtime->update($formData);

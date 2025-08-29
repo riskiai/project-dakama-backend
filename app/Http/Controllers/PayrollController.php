@@ -203,8 +203,8 @@ class PayrollController extends Controller
             return MessageDakama::warning('You are not allowed to process payrolls');
         }
 
-        if ($payroll->status == Payroll::STATUS_APPROVED) {
-            return MessageDakama::warning("Payroll has been approved, can't be processed!");
+        if ($payroll->status == Payroll::STATUS_APPROVED && in_array($request->status, [Payroll::STATUS_REJECTED, Payroll::STATUS_WAITING])) {
+            return MessageDakama::warning("Loan has been approved, can't be {$request->status}!");
         }
 
         $formData = [
@@ -212,9 +212,7 @@ class PayrollController extends Controller
             'reason_approval' => $request->reason_approval,
         ];
 
-        $dateTime = explode(",", trim($payroll->datetime));
-
-        $dateTime = array_map('trim', $dateTime);
+        $dateTime = explode(", ", trim($payroll->datetime));
 
         try {
             if ($request->status == Payroll::STATUS_APPROVED) {
@@ -236,6 +234,21 @@ class PayrollController extends Controller
 
                 $payroll->user()->update([
                     'loan' => $payroll->user->loan - $payroll->total_loan
+                ]);
+            }
+
+            if ($request->status == Payroll::STATUS_CANCELLED) {
+                $payroll->mutations()->create([
+                    'user_id' => $payroll->user_id,
+                    'increase' => $payroll->total_loan,
+                    'latest' => $payroll->user->loan,
+                    'total' => $payroll->user->loan + $payroll->total_loan,
+                    'description' => "Loan {$payroll->total_loan} cancelled by {$user->name}",
+                    'created_by' => $payroll->user_id
+                ]);
+
+                $payroll->user()->update([
+                    'loan' => $payroll->user->loan + $payroll->total_loan
                 ]);
             }
 
@@ -307,6 +320,10 @@ class PayrollController extends Controller
 
         $payroll = Payroll::with(['user.role', 'user.salary'])->find($id);
         if (!$payroll) {
+            abort(404);
+        }
+
+        if ($payroll->status != Payroll::STATUS_APPROVED) {
             abort(404);
         }
 
