@@ -57,10 +57,18 @@ class PurchaseCollection extends ResourceCollection
                 }
             }
 
+            $purchaseType = [
+                "id"   => $purchase->purchase_id,
+                "name" => $purchase->purchase_id == Purchase::TYPE_EVENT
+                    ? Purchase::TEXT_EVENT
+                    : Purchase::TEXT_OPERATIONAL,
+                ];
+
             $data[$key] = [
                 "doc_no" => $purchase->doc_no,
                 "doc_type" => $purchase->doc_type,
-                "purchase_type" => $purchase->purchase_id == Purchase::TYPE_EVENT ? Purchase::TEXT_EVENT : Purchase::TEXT_OPERATIONAL,
+                // "purchase_type" => $purchase->purchase_id == Purchase::TYPE_EVENT ? Purchase::TEXT_EVENT : Purchase::TEXT_OPERATIONAL,
+                "purchase_type" => $purchaseType,
                 /* "vendor_name" => [
                     "id" => $purchase->company->id,
                     "name" => $purchase->company->name,
