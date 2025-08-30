@@ -14,7 +14,7 @@
 <body>
   <div class="box">
       <h1>404</h1>
-      <p>Oops, nothing here.</p>
+      <p>Oops, nothing hers.</p>
   </div>
 </body>
 </html>
