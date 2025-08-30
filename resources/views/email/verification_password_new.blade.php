@@ -46,7 +46,7 @@
             <p><strong>Your password has been successfully reset.</strong></p>
             <p><strong>Email:</strong> {{ $user->email }}</p>
             <p><strong>New Password:</strong> {{ $newPassword }}</p>
-            <p><strong>Login here:</strong> <a href="https://dakama.id/login" target="_blank">dakama.id</a></p>
+            <p><strong>Login here:</strong> <a href="https://damakaryamakmur.com/login" target="_blank">dakama.id</a></p>
             <p>Please make sure to change your password after logging in for security purposes.</p>
             <p>Thank you for using our service.</p>
         </section>
