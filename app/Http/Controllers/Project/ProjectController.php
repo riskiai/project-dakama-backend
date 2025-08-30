@@ -258,6 +258,12 @@ class ProjectController extends Controller
         // 1.  Base query
         $query = Project::query();
 
+        $authUser = auth()->user();
+
+        if ($this->isSupervisor($authUser) || $this->isKaryawan($authUser)) {
+            $query->forAbsensiUser($authUser->id);
+        }
+
         /* ───────── Global search ───────── */
         if ($request->filled('search')) {
             $search = $request->search;
