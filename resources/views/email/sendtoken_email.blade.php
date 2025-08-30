@@ -19,7 +19,7 @@
             <p><strong>Token: {{ $token }}</strong></p>
             <p><strong>Silakan klik tautan berikut untuk melanjutkan reset password:</strong></p>
           {{--   <p><a href="{{ url('verify-token/' . $token) }}" style="text-decoration: none; font-size:13px; font-weight:bold; color:blue;">Verifikasi Token</a></p> --}}
-            <p><strong>Link Website : </strong> <a href="https://damakaryamakmur.com/change-password/v1/confirmation" style="text-decoration: none; font-size:13px; font-weight:bold; color:blue;">kubikaexpo.id</a></p>
+            <p><strong>Link Website : </strong> <a href="https://damakaryamakmur.com/change-password/v1/confirmation" style="text-decoration: none; font-size:13px; font-weight:bold; color:blue;">damakaryamakmur.com</a></p>
             <p>Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
 
             <h3>Salam hormat, <br> PT DAKAMA</h3>
