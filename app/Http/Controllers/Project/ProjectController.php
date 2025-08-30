@@ -232,6 +232,12 @@ class ProjectController extends Controller
         // Eager load untuk mengurangi query N+1
         $query->with(['company', 'user', 'tenagaKerja']);
 
+        $authUser = auth()->user();
+
+        if ($this->isSupervisor($authUser) || $this->isKaryawan($authUser)) {
+            $query->forAbsensiUser($authUser->id);
+        }
+
         // Tambahkan kondisi untuk menyortir data berdasarkan nama proyek
         $query->orderBy('name', 'asc');
 
