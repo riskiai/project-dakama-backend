@@ -32,6 +32,9 @@ class MutationController extends Controller
             $query->where('user_id', $request->user_id);
         });
 
+        $query->when($request->has('type') && $request->filled('type'), function ($query) use ($request) {
+            $query->where('type', $request->type);
+        });
 
         $query->when($request->has('sort_by') && $request->filled('sort_by') && $request->has('sort_type') && $request->filled('sort_type'), function ($query) use ($request) {
             $query->orderBy($request->sort_by ?? 'id', $request->sort_type ?? 'desc');
