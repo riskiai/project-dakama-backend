@@ -79,7 +79,7 @@ class ProjectCollection extends ResourceCollection
                 ->pluck('nominal')          
                 ->toArray(), */
 
-                'budgets_total' => (float) $project
+                'total_budgets_estimasi' => (float) $project
                 ->budgetsDirect()
                 ->sum('nominal'),
 
@@ -89,12 +89,13 @@ class ProjectCollection extends ResourceCollection
                                 $project,
                                 $this->formatMargin($project)   
                             ),
+                'actual_real_cost' => (float) $project->billing - (float) $this->formatMargin($project),
                 'date' => $project->date,
                 'name' => $project->name,
+                'cost_progress_project' => $this->costProgress($project),
                 // 'percent' => $this->formatPercent($project->percent),
                 // 'margin' => $project->margin,
                 // 'cost_estimate' => $project->cost_estimate,
-                'cost_progress_project' => $this->costProgress($project),
                 'file_attachment' => [
                     'name' => $project->file ? date('Y', strtotime($project->created_at)) . '/' . $project->id . '.' . pathinfo($project->file, PATHINFO_EXTENSION) : null,
                     'link' => $project->file ? asset("storage/$project->file") : null,
@@ -332,9 +333,8 @@ class ProjectCollection extends ResourceCollection
         return $decoded ?? ["id" => null, "name" => "Unknown"];
     }
 
-    protected function costProgress(Project $project): array
+    /* protected function costProgress(Project $project): array
     {
-        /* ───────── 1. TOTAL PURCHASE ───────── */
         $totalPurchaseCost = $project->purchases()
             ->whereIn('tab', [
                 Purchase::TAB_SUBMIT,
@@ -345,7 +345,6 @@ class ProjectCollection extends ResourceCollection
             ->get()                     // ← ambil sebagai Collection
             ->sum('net_total');         // ← accessor dihitung di PHP, bukan SQL
 
-        /* ───────── 2. TOTAL MAN-POWER ──────── */
         $att = Attendance::where('project_id', $project->id)
             ->where('status', Attendance::ATTENDANCE_OUT)
             ->selectRaw('
@@ -359,7 +358,6 @@ class ProjectCollection extends ResourceCollection
                         + ($att->overtime ?? 0)
                         - ($att->late_cut ?? 0);
 
-        /* ───────── 3. REAL COST & STATUS ───── */
         $realCost = $totalPurchaseCost + $totalPayrollCost;
 
         $percent = $project->cost_estimate > 0
@@ -375,7 +373,65 @@ class ProjectCollection extends ResourceCollection
 
         $project->update(['status_cost_progres' => $status]);
 
-        /* ───────── 4. RESPON ───────── */
+        return [
+            'status_cost_progres' => $status,
+            'percent'             => $percent . '%',
+            'real_cost'           => $realCost,
+            'purchase_cost'       => $totalPurchaseCost,
+            'payroll_cost'        => $totalPayrollCost,
+        ];
+    } */
+
+    protected function costProgress(Project $project): array
+    {
+        /* ───────── 1. TOTAL PURCHASE ───────── */
+        $totalPurchaseCost = $project->purchases()
+            ->whereIn('tab', [
+                Purchase::TAB_SUBMIT,
+                Purchase::TAB_VERIFIED,
+                Purchase::TAB_PAYMENT_REQUEST,
+                Purchase::TAB_PAID,
+            ])
+            ->get()
+            ->sum('net_total');
+
+        /* ───────── 2. TOTAL MAN-POWER ──────── */
+        $att = Attendance::where('project_id', $project->id)
+            ->where('status', Attendance::ATTENDANCE_OUT)
+            ->selectRaw('
+                SUM(daily_salary)           AS daily,
+                SUM(hourly_overtime_salary) AS overtime,
+                SUM(late_cut)               AS late_cut
+            ')
+            ->first();
+
+        $totalPayrollCost = ($att->daily ?? 0)
+                        + ($att->overtime ?? 0)
+                        - ($att->late_cut ?? 0);
+
+        /* ───────── 3. REAL COST ───────── */
+        $realCost = $totalPurchaseCost + $totalPayrollCost;
+
+        /* ───────── 4. PERSEN BERDASARKAN BILLING ───────── */
+        $billing = (float) $project->billing;
+        $percent = $billing > 0
+            ? round(($realCost / $billing) * 100, 2)
+            : 0;
+
+        /* ───────── 5. STATUS SESUAI RULE ──── */
+        $status = Project::STATUS_OPEN;
+
+        if ($percent > 90 && $percent < 100) {
+            $status = Project::STATUS_NEED_TO_CHECK;
+        } elseif ($percent == 100.00) {
+            $status = Project::STATUS_CLOSED;
+        } elseif ($percent > 100) {
+            $status = Project::STATUS_NEED_TO_CHECK;
+        }
+
+        $project->update(['status_cost_progres' => $status]);
+
+        /* ───────── 6. RESPON ───────── */
         return [
             'status_cost_progres' => $status,
             'percent'             => $percent . '%',
@@ -384,6 +440,8 @@ class ProjectCollection extends ResourceCollection
             'payroll_cost'        => $totalPayrollCost,
         ];
     }
+
+
 
 
     // protected function tukangHarianSalary($query) {

@@ -30,6 +30,7 @@ class UpdateRequest extends FormRequest
             'contact_type' => 'nullable|exists:contact_type,id',
             'name' => 'nullable|max:255',
             'address' => 'nullable|max:255',
+            'vendor_category' => 'nullable|max:255',
             'bank_name' => 'nullable|max:255',
             'branch' => 'nullable|max:255',
             'account_name' => 'nullable|max:255',

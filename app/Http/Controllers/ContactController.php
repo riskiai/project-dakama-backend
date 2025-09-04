@@ -50,6 +50,11 @@ class ContactController extends Controller
             $query->whereBetween('created_at', $date);
         }
 
+        // Filter Berdasarkan Vendor Category
+        if ($request->has('vendor_category')) {
+            $query->where('vendor_category', 'like', '%' . $request->vendor_category . '%');
+        }
+
 
         // keluaran dari index ini merupakan paginate
         $contacts = $query->paginate($request->per_page);
@@ -94,6 +99,11 @@ class ContactController extends Controller
             $query->whereBetween('created_at', $date);
         }
 
+        // Filter Berdasarkan Vendor Category
+        if ($request->has('vendor_category')) {
+            $query->where('vendor_category', 'like', '%' . $request->vendor_category . '%');
+        }
+
         // Tambahkan kondisi untuk menyortir data berdasarkan nama perusahaan jika jenis kontak adalah vendor
         if ($request->has('contact_type') && $request->contact_type == ContactType::VENDOR) {
             $query->orderBy('name', 'asc');
@@ -127,10 +137,15 @@ class ContactController extends Controller
         $keyword = trim($request->input('search', ''));
 
         $query = Company::with('contactType')
-                        ->select('id', 'contact_type_id', 'name');
+                        ->select('id', 'contact_type_id', 'name', 'vendor_category');
 
         if ($request->has('contact_type')) {
             $query->where('contact_type_id', $request->contact_type);
+        }
+
+        // Filter Berdasarkan Vendor Category
+        if ($request->has('vendor_category')) {
+            $query->where('vendor_category', 'like', '%' . $request->vendor_category . '%');
         }
 
         if ($keyword !== '') {
@@ -261,6 +276,7 @@ class ContactController extends Controller
                     "name" => $contact->contactType->name,
                 ],
                 "name" => $contact->name,
+                "vendor_category" => $contact->vendor_category,
                 "address" => $contact->address,
                 "attachment_npwp" => $attachment_npwp,
                 "pic_name" => $contact->pic_name,

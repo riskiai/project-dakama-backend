@@ -27,6 +27,8 @@ class CreateNotLoginRequest extends FormRequest
             'hourly_overtime_salary' => 'required|numeric|min:0',
             'transport' => 'required|numeric|min:0',
             'makan'=> 'required|numeric|min:0',
+             'bank_name'      => 'nullable|string|max:100',
+            'account_number' => 'nullable|string|max:50',
         ];
     }
 
