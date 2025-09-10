@@ -16,10 +16,13 @@ class Attendance extends Model
     const ATTENDANCE_OUT = 'out';
     const ATTENDANCE_ABSENT = 'absent';
 
+    const ATTENDANCE_TYPE_NORMAL = 0;
+    const ATTENDANCE_TYPE_OVERTIME = 1;
+
     protected $fillable = [
         'user_id',
         'project_id',
-        'task_id',
+        'budget_id',
         'duration',
         'start_time',
         'end_time',
@@ -34,11 +37,8 @@ class Attendance extends Model
         'image_out',
         'is_late',
         'daily_salary',
-        'hourly_salary',
         'hourly_overtime_salary',
-        'transport',
         'makan',
-        'bonus_ontime',
         'late_cut',
         'late_minutes',
         'is_settled',
@@ -56,9 +56,9 @@ class Attendance extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function task()
+    public function budget()
     {
-        return $this->belongsTo(Task::class);
+        return $this->belongsTo(Budget::class);
     }
 
     public function project()

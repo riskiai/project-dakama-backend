@@ -32,7 +32,7 @@ class AttendanceController extends Controller
         $query->with([
             'project',
             'user',
-            'budget' => function ($query) {
+            'task' => function ($query) {
                 $query->withTrashed();
             },
             'overtime',
@@ -82,13 +82,14 @@ class AttendanceController extends Controller
             $adjs = $query->get();
         }
 
+
         return new AttendanceCollection($adjs);
     }
 
     public function show($id)
     {
         $attendance = Attendance::with([
-            'budget' => function ($query) {
+            'task' => function ($query) {
                 $query->withTrashed();
             },
             'overtime',
@@ -106,28 +107,23 @@ class AttendanceController extends Controller
 
         $currentTime = now();
 
-        $query = Attendance::with([
-            'budget' => function ($query) {
+        $attendance = Attendance::with([
+            'task' => function ($query) {
                 $query->withTrashed();
             },
             'overtime',
         ])
             ->where('user_id', $user->id)
-            ->whereDate('start_time', $currentTime->toDateString())
-            ->where('type', $request->type ?? 0);
-
-        if ($request->type == 0) {
-            $query->where('end_time', '>', $currentTime);
-        }
-
-        if ($request->type == 1) {
-            $query->whereNull('end_time');
-        }
-
-        $attendance = $query->first();
+            ->whereDate('start_time', $currentTime)
+            ->where('type', $request->type ?? 0)
+            ->first();
 
         if (!$attendance) {
             return MessageDakama::warning("User not attendance now!");
+        }
+
+        if ($attendance->status == Attendance::ATTENDANCE_OUT) {
+            return MessageDakama::warning("User already attendance out!");
         }
 
         return new AttendanceResource($attendance);
@@ -156,87 +152,138 @@ class AttendanceController extends Controller
         }
 
         $currentTime = now();
-        $endTime = Carbon::parse($currentTime->format('Y-m-d') . ' ' . $operationalHour->offtime);
 
-        $attendanceCurrent = Attendance::where([
+        $attendance = Attendance::where([
             'project_id' => $request->validated('project_id'),
             'user_id'    => $user->id,
-            'budget_id'  => $request->validated('budget_id'),
             'type'       => $request->validated('type')
         ])->whereDate('start_time', $currentTime)->first();
-        if ($attendanceCurrent && $attendanceCurrent->type == Attendance::ATTENDANCE_TYPE_NORMAL) {
-            return MessageDakama::warning("User already attendance now!");
+
+        if ($attendance && $attendance->status == Attendance::ATTENDANCE_OUT) {
+            $type = $request->validated('type') ==  0 ? 'attendance' : 'overtime';
+            return MessageDakama::warning("User already {$type} out!");
         }
 
-        if ($attendanceCurrent && $attendanceCurrent->type == Attendance::ATTENDANCE_TYPE_OVERTIME && $attendanceCurrent->end_time != null) {
-            return MessageDakama::warning("User already attendance out!");
+        if ($attendance) {
+            $validator = Validator::make($request->all(), [
+                'location_out' => 'required',
+                'location_lat_out' => 'required',
+                'location_long_out' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return MessageDakama::render([
+                    'status' => "ATTENDANCE_OUT_WARNING",
+                    'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                    'message' => $validator->errors()
+                ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        } else {
+            $validator = Validator::make($request->all(), [
+                'location_in' => 'required',
+                'location_lat_in' => 'required',
+                'location_long_in' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return MessageDakama::render([
+                    'status' => "ATTENDANCE_IN_WARNING",
+                    'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                    'message' => $validator->errors()
+                ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+            }
         }
 
         try {
-            $attendance = null;
-
-            if ($request->validated('type') == Attendance::ATTENDANCE_TYPE_NORMAL) {
-                $validator = Validator::make($request->all(), [
-                    'location_in' => 'required',
-                    'location_lat_in' => 'required',
-                    'location_long_in' => 'required',
-                    'image_in' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                ]);
-
-                if ($validator->fails()) {
-                    return MessageDakama::render([
-                        'status' => "ATTENDANCE_IN_WARNING",
-                        'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
-                        'message' => $validator->errors()
-                    ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
-                }
-
-                $attendance = Attendance::create([
-                    'user_id' => $user->id,
-                    'budget_id' => $request->validated('budget_id'),
-                    'project_id' => $request->validated('project_id'),
-                    'location_in' => $request->location_in,
-                    'location_lat_in' => $request->location_lat_in,
-                    'location_long_in' => $request->location_long_in,
-                    'start_time' => $currentTime,
-                    'end_time' => $operationalHour->offtime,
-                    'image_in' => $request->file('image_in')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
-                    'duration' => ceil($currentTime->diffInMinutes($endTime, false)),
-                    'daily_salary' => $user->salary->daily_salary,
-                    'type' => 0
-                ]);
-            } else {
-                $validator = Validator::make($request->all(), [
-                    'location_out' => 'required',
-                    'location_lat_out' => 'required',
-                    'location_long_out' => 'required',
-                    'image_out' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                ]);
-
-                if ($validator->fails()) {
-                    return MessageDakama::render([
-                        'status' => "ATTENDANCE_OUT_WARNING",
-                        'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
-                        'message' => $validator->errors()
-                    ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
-                }
-
-                $attendance = $attendanceCurrent->update([
+            if ($attendance) {
+                $attendance->update([
+                    'end_time' => $currentTime,
                     'location_out' => $request->location_out,
                     'location_lat_out' => $request->location_lat_out,
                     'location_long_out' => $request->location_long_out,
-                    'end_time' => $currentTime,
-                    'image_out' => $request->file('image_out')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public'),
-                    'duration' => ceil($currentTime->diffInMinutes($endTime, false)),
-                    'type' => 1
+                    'image_out' => $request->type == 0 ? $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public') : "-",
+                    'status' => Attendance::ATTENDANCE_OUT
                 ]);
+
+                if ($request->type == 0) {
+                    $message = "User {$user->name} attendance out success!";
+                } else {
+                    $message = "User {$user->name} overtime out success!";
+                }
+            } else {
+                $lateCut = 0;
+                if (strtotime($currentTime) > strtotime($operationalHour->late_time)) {
+                    $lateCut = Helper::calculateLateCut($user->salary->daily_salary, abs($currentTime->diffInMinutes($operationalHour->late_time)));
+                }
+
+                $bonusOnTime = 0;
+                if (strtotime($currentTime) >= strtotime($operationalHour->ontime_start) && strtotime($currentTime) <= strtotime($operationalHour->ontime_end)) {
+                    $bonusOnTime = $operationalHour->bonus;
+                }
+
+                if ($request->type == 1) {
+                    $overtime = Overtime::whereDate('request_date', now()->format('Y-m-d'))
+                        ->where('user_id', $user->id)
+                        ->where('is_present', false)
+                        ->where('status', Overtime::STATUS_APPROVED)
+                        ->first();
+                    if (!$overtime) {
+                        return MessageDakama::warning("There is no overtime today!");
+                    }
+
+                    $tasks = [
+                        'project_id' => $overtime->project_id,
+                        'budget_id' => $overtime->budget_id,
+                        'overtime_id' => $overtime->id,
+                        'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
+                        'image_in' => '-',
+                        'duration' => $overtime->duration,
+                        'makan' => $overtime->makan
+                    ];
+
+                    $overtime->update([
+                        'is_present' => 1
+                    ]);
+                } else {
+                    $tasks = [
+                        'project_id' => $request->validated('project_id'),
+                        'budget_id' => $request->validated('budget_id'),
+                        'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
+                        'daily_salary' => $user->salary->daily_salary,
+                        'hourly_salary' => $user->salary->hourly_salary,
+                        'transport' => $user->salary->transport,
+                        'makan' => $user->salary->makan,
+                        'late_cut' => $lateCut,
+                        'bonus_ontime' => $bonusOnTime,
+                        'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0,
+                        'duration' => $operationalHour->duration,
+                    ];
+                }
+
+                $attendance = Attendance::create([
+                    ...$tasks,
+                    'start_time' => $currentTime,
+                    'location_in' => $request->location_in,
+                    'location_lat_in' => $request->location_lat_in,
+                    'location_long_in' => $request->location_long_in,
+                    'user_id' => $user->id,
+                    'status' => Attendance::ATTENDANCE_IN,
+                    'type' => $request->type
+                ]);
+
+                if ($request->type == 0) {
+                    $message = "User {$user->name} attendance in success!";
+                } else {
+                    $message = "User {$user->name} overtime in success!";
+                }
             }
 
             DB::commit();
-            return MessageDakama::success("Berhasil absen", $attendance);
+            return MessageDakama::success($message, $attendance);
         } catch (\Throwable $th) {
             DB::rollBack();
-            return MessageDakama::error("Gagal absen: " . $th->getMessage());
+            dd($th);
+            return MessageDakama::error("Gagal mendaftarkan absen: " . $user->name);
         }
     }
 

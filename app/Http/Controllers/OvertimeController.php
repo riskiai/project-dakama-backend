@@ -7,6 +7,8 @@ use App\Facades\MessageDakama;
 use App\Http\Resources\Overtime\OvertimeCollection;
 use App\Http\Resources\Overtime\OvertimeResource;
 use App\Jobs\SendEmailApprovalJob;
+use App\Models\Attendance;
+use App\Models\OperationalHour;
 use App\Models\Overtime;
 use App\Models\Role;
 use App\Models\User;
@@ -25,7 +27,7 @@ class OvertimeController extends Controller
 
         $query = Overtime::query();
 
-        $query->with(['project', 'task' => function ($query) {
+        $query->with(['project', 'budget' => function ($query) {
             $query->withTrashed();
         }, 'user']);
 
@@ -45,8 +47,8 @@ class OvertimeController extends Controller
             $query->where('project_id', $request->project_id);
         });
 
-        $query->when($request->has('task_id') && $request->filled('task_id'), function ($query) use ($request) {
-            $query->where('task_id', $request->task_id);
+        $query->when($request->has('budget_id') && $request->filled('budget_id'), function ($query) use ($request) {
+            $query->where('budget_id', $request->budget_id);
         });
 
         $query->when($request->has('start_date') && $request->filled('start_date') &&
@@ -73,16 +75,12 @@ class OvertimeController extends Controller
     {
         DB::beginTransaction();
 
-        $user = Auth::user();
-
         $validator = Validator::make($request->all(), [
             'project_id'    => 'required|exists:projects,id',
-            'task_id'       => 'required|exists:tasks,id',
+            'budget_id'     => 'required|exists:budgets,id',
             'request_date'  => 'required|date_format:Y-m-d',
-            'start_time'    => 'required|date_format:H:i',
-            'end_time'      => 'required|date_format:H:i|after:start_time',
             'reason'        => 'max:255',
-            'pic_id'        => 'required|exists:users,id',
+            'user_id'        => 'required|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -93,10 +91,17 @@ class OvertimeController extends Controller
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $user = User::find($request->user_id);
+
+        $operationalHour = OperationalHour::first();
+        if (!$operationalHour) {
+            return MessageDakama::warning("Operational hour not found!");
+        }
+
         $overtime = Overtime::where('user_id', $user->id)
             ->whereDate('request_date', Carbon::createFromFormat('Y-m-d', $request->request_date)->toDateTime())
             ->where('project_id', $request->project_id)
-            ->where('task_id', $request->task_id)
+            ->where('budget_id', $request->budget_id)
             ->first();
         if ($overtime) {
             return MessageDakama::warning('Overtime already exist');
@@ -105,7 +110,7 @@ class OvertimeController extends Controller
         try {
             $overtime = Overtime::create([
                 'project_id' => $request->project_id,
-                'task_id' => $request->task_id,
+                'budget_id' => $request->budget_id,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
                 'user_id' => $user->id,
@@ -113,10 +118,20 @@ class OvertimeController extends Controller
                 'salary_overtime' => 0,
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,
-                'duration' => Helper::calculateDurationTime($request->start_time, $request->end_time),
+                'status' => Overtime::STATUS_APPROVED
             ]);
 
-            $this->createNotification($overtime, $user, 'Permintaan Lembur', 'Permintaan lembur dari ' . $user->name);
+            $overtime->attendance()->create([
+                'user_id' => $user->id,
+                'budget_id' => $request->budget_id,
+                'project_id' => $request->project_id,
+                'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime),
+                'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
+                'type' => 1,
+                'image_in' => "-"
+            ]);
+
+            // $this->createNotification($overtime, $user, 'Permintaan Lembur', 'Permintaan lembur dari ' . $user->name);
 
             DB::commit();
             return MessageDakama::success('Overtime successfully created');
@@ -128,7 +143,7 @@ class OvertimeController extends Controller
 
     public function show($id)
     {
-        $overtime = Overtime::with(['task' => function ($query) {
+        $overtime = Overtime::with(['budget' => function ($query) {
             $query->withTrashed();
         }])->find($id);
         if (!$overtime) {
@@ -144,7 +159,7 @@ class OvertimeController extends Controller
     {
         $user = Auth::user();
 
-        $overtime = Overtime::with(['task' => function ($query) {
+        $overtime = Overtime::with(['budget' => function ($query) {
             $query->withTrashed();
         }])->where('user_id', $user->id)
             ->whereDate('request_date', now())
@@ -168,10 +183,8 @@ class OvertimeController extends Controller
 
         $validator = Validator::make($request->all(), [
             'project_id' => 'required|exists:projects,id',
-            'task_id' => 'required|exists:tasks,id',
+            'budget_id' => 'required|exists:budgets,id',
             'request_date' => 'required|date_format:Y-m-d',
-            'start_time'    => 'required|date_format:H:i',
-            'end_time'      => 'required|date_format:H:i|after:start_time',
             'reason' => 'max:255',
         ]);
 
@@ -183,16 +196,27 @@ class OvertimeController extends Controller
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $operationalHour = OperationalHour::first();
+        if (!$operationalHour) {
+            return MessageDakama::warning("Operational hour not found!");
+        }
+
         try {
             $overtime->update([
                 'project_id' => $request->project_id,
-                'task_id' => $request->task_id,
+                'budget_id' => $request->budget_id,
                 'pic_id' => $request->pic_id,
                 'request_date' => $request->request_date,
                 'reason' => $request->reason ?? "-",
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,
-                'duration' => Helper::calculateDurationTime($request->start_time, $request->end_time),
+            ]);
+
+            $overtime->attendance()->update([
+                'user_id' => $overtime->user->id,
+                'budget_id' => $request->budget_id,
+                'project_id' => $request->project_id,
+                'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime)->format('Y-m-d H:i:s'),
             ]);
 
             DB::commit();
@@ -205,6 +229,8 @@ class OvertimeController extends Controller
 
     public function approval(Request $request, $id)
     {
+        abort(404);
+
         DB::beginTransaction();
 
         $overtime = Overtime::with(['user.salary'])->find($id);
@@ -278,12 +304,10 @@ class OvertimeController extends Controller
             return MessageDakama::notFound('Overtime not found');
         }
 
-        if ($overtime->status != Overtime::STATUS_WAITING) {
-            return MessageDakama::warning("Overtime has been {$overtime->status}, can't delete!");
-        }
-
         try {
             $overtime->delete();
+
+            $overtime->attendance->delete();
 
             DB::commit();
             return MessageDakama::success('Overtime successfully deleted');

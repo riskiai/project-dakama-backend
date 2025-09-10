@@ -27,8 +27,7 @@ class StoreRequest extends FormRequest
     {
         return [
             'project_id' => 'required|exists:projects,id',
-            'task_id' => 'required|exists:tasks,id',
-            'image' => 'required_if:type,0|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'budget_id' => 'required|exists:budgets,id',
             'type' => 'required|in:1,0',
         ];
     }
