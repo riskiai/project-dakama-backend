@@ -12,6 +12,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceAdjustment;
 use App\Models\OperationalHour;
 use App\Models\Overtime;
+use App\Models\Project;
 use App\Models\Role;
 use App\Models\UserProjectAbsen;
 use App\Models\UserSalary;
@@ -137,7 +138,7 @@ class AttendanceController extends Controller
     {
         DB::beginTransaction();
 
-        $operationalHour = OperationalHour::first();
+        $operationalHour = Project::find($request->validated('project_id'))->operationalHour;
         if (!$operationalHour) {
             return MessageDakama::warning("Operational hour not found!");
         }
@@ -180,7 +181,6 @@ class AttendanceController extends Controller
                     'location_in' => 'required',
                     'location_lat_in' => 'required',
                     'location_long_in' => 'required',
-                    'image_in' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
                 ]);
 
                 if ($validator->fails()) {
@@ -189,6 +189,13 @@ class AttendanceController extends Controller
                         'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
                         'message' => $validator->errors()
                     ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $duration = round($currentTime->diffInHours($endTime, false), 0);
+
+                $lateCut = 0;
+                if (strtotime($currentTime) > strtotime(Carbon::parse($currentTime->format('Y-m-d') . ' ' . $operationalHour->late_time))) {
+                    $lateCut = Helper::calculateLateCut($user->salary->daily_salary, abs($currentTime->diffInMinutes($operationalHour->late_time)));
                 }
 
                 $attendance = Attendance::create([
@@ -200,17 +207,18 @@ class AttendanceController extends Controller
                     'location_long_in' => $request->location_long_in,
                     'start_time' => $currentTime,
                     'end_time' => $operationalHour->offtime,
-                    'image_in' => $request->file('image_in')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
-                    'duration' => ceil($currentTime->diffInMinutes($endTime, false)),
-                    'daily_salary' => $user->salary->daily_salary,
-                    'type' => 0
+                    'image_in' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_IN, 'public'),
+                    'duration' => $duration,
+                    'daily_salary' => $user->salary->hourly_salary * $duration,
+                    'type' => 0,
+                    'late_cut' => $lateCut,
+                    'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0
                 ]);
             } else {
                 $validator = Validator::make($request->all(), [
                     'location_out' => 'required',
                     'location_lat_out' => 'required',
                     'location_long_out' => 'required',
-                    'image_out' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
                 ]);
 
                 if ($validator->fails()) {
@@ -221,13 +229,16 @@ class AttendanceController extends Controller
                     ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
+                $duration = round($currentTime->diffInHours($endTime, false), 0);
+
                 $attendance = $attendanceCurrent->update([
                     'location_out' => $request->location_out,
                     'location_lat_out' => $request->location_lat_out,
                     'location_long_out' => $request->location_long_out,
                     'end_time' => $currentTime,
-                    'image_out' => $request->file('image_out')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public'),
-                    'duration' => ceil($currentTime->diffInMinutes($endTime, false)),
+                    'image_out' => $request->file('image')->store(Attendance::ATTENDANCE_IMAGE_OUT, 'public'),
+                    'duration' => $duration,
+                    'hourly_overtime_salary' => $user->salary->hourly_overtime_salary * $duration,
                     'type' => 1
                 ]);
             }
@@ -237,6 +248,80 @@ class AttendanceController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return MessageDakama::error("Gagal absen: " . $th->getMessage());
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        if (Auth::user()->hasRole(Role::KARYAWAN)) {
+            return MessageDakama::warning("You can't update attendance!");
+        }
+
+        $attendance = Attendance::find($id)->load(['project.operationalHour', 'user.salary']);
+        if (!$attendance) {
+            return MessageDakama::warning("Attendance not found!");
+        }
+
+        $validator = Validator::make($request->all(), [
+            'start_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s',
+        ]);
+
+        if ($validator->fails()) {
+            return MessageDakama::render([
+                'status' => MessageDakama::WARNING,
+                'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
+                'message' => $validator->errors()
+            ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($attendance->type == Attendance::ATTENDANCE_TYPE_OVERTIME) {
+            return MessageDakama::warning("You can't update overtime attendance!");
+        }
+
+        $user = $attendance->user;
+        $operationalHour = $attendance->project->operationalHour;
+        if (!$operationalHour) {
+            return MessageDakama::warning("Operational hour not found!");
+        }
+
+        $startTime = Carbon::parse($attendance->start_time->format('Y-m-d') . ' ' . $request->start_time);
+        $endTime = Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $request->end_time);
+
+        if (strtotime($endTime) > strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->offtime))) {
+            return MessageDakama::warning("End time must be before offtime!");
+        }
+
+        if (strtotime($startTime) < strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->ontime_start))) {
+            return MessageDakama::warning("Start time must be after ontime start!");
+        }
+
+        $lateCut = 0;
+        if (strtotime($startTime) > strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->late_time))) {
+            $lateCut = Helper::calculateLateCut($user->salary->daily_salary, abs($startTime->diffInMinutes($operationalHour->late_time)));
+        }
+
+
+        try {
+            $duration = round($startTime->diffInHours($endTime, false), 0);
+
+            $data = [
+                ...$validator->validated(),
+                'late_cut' => $lateCut,
+                'late_minutes' => $lateCut != 0 ? abs($startTime->diffInMinutes($operationalHour->late_time)) : 0,
+                'duration' => $duration,
+                'daily_salary' => $user->salary->hourly_salary * $duration,
+            ];
+
+            $attendance->update($data);
+
+            DB::commit();
+            return MessageDakama::success("Berhasil update absen", $attendance);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return MessageDakama::error("Gagal update absen: " . $th->getMessage());
         }
     }
 

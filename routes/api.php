@@ -119,7 +119,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('setuser-project-absen-all', [SetUsersProjectController::class, 'indexAll']);
         Route::post('setuser-project-absen-create', [SetUsersProjectController::class, 'store']);
         Route::put('setuser-project-absen-update/{id}', [SetUsersProjectController::class, 'update']);
-        Route::put('setuser-project-absen-bulk-update/{project}',
+        Route::put(
+            'setuser-project-absen-bulk-update/{project}',
             [SetUsersProjectController::class, 'bulkUpdate']
         );
         Route::get('setuser-project-absen-show/{id}', [SetUsersProjectController::class, 'show']);
@@ -182,6 +183,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/show', [AttendanceController::class, 'show']);
         Route::get('/show-me', [AttendanceController::class, 'showMe']);
         Route::post('/store', [AttendanceController::class, 'store']);
+        Route::put('/update/{id}', [AttendanceController::class, 'update']);
         Route::post('/sync', [AttendanceController::class, 'sync']);
         Route::delete('/destroy-bulk', [AttendanceController::class, 'destroy']);
 
@@ -231,7 +233,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('update/{id}', [OperationalController::class, 'update']);
         Route::delete('delete/{id}', [OperationalController::class, 'destroy']);
         Route::post('restore/{id}', [OperationalController::class, 'restore']);
-
     });
 
     Route::prefix('payroll')->group(function () {

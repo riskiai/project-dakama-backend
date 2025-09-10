@@ -29,6 +29,7 @@ class StoreRequest extends FormRequest
             'project_id' => 'required|exists:projects,id',
             'budget_id' => 'required|exists:budgets,id',
             'type' => 'required|in:1,0',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ];
     }
 

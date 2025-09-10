@@ -10,6 +10,7 @@ use App\Jobs\SendEmailApprovalJob;
 use App\Models\Attendance;
 use App\Models\OperationalHour;
 use App\Models\Overtime;
+use App\Models\Project;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserProjectAbsen;
@@ -93,7 +94,7 @@ class OvertimeController extends Controller
 
         $user = User::find($request->user_id);
 
-        $operationalHour = OperationalHour::first();
+        $operationalHour = Project::find($request->project_id)->operationalHour;
         if (!$operationalHour) {
             return MessageDakama::warning("Operational hour not found!");
         }
@@ -126,9 +127,9 @@ class OvertimeController extends Controller
                 'budget_id' => $request->budget_id,
                 'project_id' => $request->project_id,
                 'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime),
-                'hourly_overtime_salary' => $user->salary->hourly_overtime_salary,
                 'type' => 1,
-                'image_in' => "-"
+                'image_in' => "-",
+                'duration' => 0
             ]);
 
             // $this->createNotification($overtime, $user, 'Permintaan Lembur', 'Permintaan lembur dari ' . $user->name);
