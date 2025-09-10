@@ -50,6 +50,11 @@ class UsersController extends Controller
             });
         }
 
+        // Filter Berdasarkan Bank Name
+        if ($request->has('bank_name')) {
+            $query->where('bank_name', 'like', '%' . $request->bank_name . '%');
+        }   
+
         if ($request->has('role_id')) {
             // Ambil array role_id dari request, pastikan dalam bentuk array
             $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
@@ -90,6 +95,10 @@ class UsersController extends Controller
             });
         }
 
+         if ($request->has('bank_name')) {
+            $query->where('bank_name', 'like', '%' . $request->bank_name . '%');
+        }   
+
         if ($request->has('role_id')) {
             // Ambil array role_id dari request, pastikan dalam bentuk array
             $roleIds = is_array($request->role_id) ? $request->role_id : explode(',', $request->role_id);
@@ -97,6 +106,10 @@ class UsersController extends Controller
             // Terapkan filter berdasarkan role_id
             $query->whereIn('role_id', $roleIds);
         }
+
+          if ($request->has('bank_name')) {
+            $query->where('bank_name', 'like', '%' . $request->bank_name . '%');
+        }   
 
         $users = $query->get();
 
@@ -122,6 +135,8 @@ class UsersController extends Controller
                     'role_name' => $user->role->role_name,
                 ],
                 'nomor_karyawan' => $user->nomor_karyawan,
+                'bank_name' => $user->bank_name,
+                'account_number' => $user->account_number,
                 'divisi' => [
                     'id' => $user->divisi->id ?? null,
                     'name' => $user->divisi->name ?? null,
@@ -177,6 +192,8 @@ class UsersController extends Controller
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
                 'nomor_karyawan' => $request->nomor_karyawan,
+                'bank_name' => $request->bank_name,
+                'account_number' => $request->account_number,
                 'status' => User::AKTIF,
             ]);
 
@@ -227,6 +244,12 @@ class UsersController extends Controller
               if ($request->has('nomor_karyawan')) {
                 $userData['nomor_karyawan'] = $request->nomor_karyawan;
             }
+            if ($request->has('bank_name')) {
+                    $userData['bank_name'] = $request->bank_name;
+                }
+            if ($request->has('account_number')) {
+                    $userData['account_number'] = $request->account_number;
+                }
             if ($request->has('email')) {
                 $userData['email'] = $request->email;
             }
@@ -439,6 +462,8 @@ class UsersController extends Controller
                 'role_id' => $request->role,
                 'divisi_id' => $request->divisi,
                 'nomor_karyawan' => $request->nomor_karyawan,
+                'bank_name' => $request->bank_name,
+                'account_number' => $request->account_number,
                 'status' => User::AKTIF,
             ]);
 

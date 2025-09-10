@@ -23,6 +23,7 @@ class UpdatePaymentTerminRequest extends FormRequest
             'riwayat_termin' => 'required|array',
             'riwayat_termin.*.id' => 'required|integer|exists:projects_termin,id',
             'riwayat_termin.*.harga_termin_proyek' => 'required|numeric|min:0',
+            'riwayat_termin.*.pph'                           => 'nullable|numeric|min:0|max:100', 
             'riwayat_termin.*.deskripsi_termin_proyek' => 'required|string',
             'riwayat_termin.*.type_termin_proyek' => 'required|in:1,2',
             'riwayat_termin.*.payment_date_termin_proyek' => 'required|date',

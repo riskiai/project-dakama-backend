@@ -14,6 +14,7 @@ class ContactAllCollection extends ResourceCollection
                     "name" => $company->contactType->name,
                 ],
                 'name' => $company->name,
+                'vendor_category' => $company->vendor_category,
             ];
         })->toArray();
     }

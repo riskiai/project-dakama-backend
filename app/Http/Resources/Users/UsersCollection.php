@@ -24,6 +24,8 @@ class UsersCollection extends ResourceCollection
                 'email' => $user->email,
                 'role' => $user->role->role_name,
                 'nomor_karyawan' => $user->nomor_karyawan,
+                'bank_name' => $user->bank_name,
+                'account_number' => $user->account_number,
                 'status_users' => $this->statusUsersKubika($user),
                 'divisi' => [
                     'name' => $user->divisi->name ?? null,

@@ -25,8 +25,8 @@
             <p><strong>Selamat <br> Password Akun Anda Telah Berhasil Diubah.</strong></p>
             <p><strong>Email : {{ $user->email }}</strong></p>
             <p><strong>Password Terbaru : {{ $user->passwordRecovery }}</strong></p>
-            <p><Strong>Link Website : </Strong> <a href="#"
-                    style="text-decoration: none; font-size:13px; font-weight:bold; color:blue;">dakama.id</a>
+            <p><Strong>Link Website : </Strong> <a href="https://damakaryamakmur.com"
+                    style="text-decoration: none; font-size:13px; font-weight:bold; color:blue;">damakaryamakmur.com</a>
             </p>
             <p><strong>Terimakasih <br> Sudah menggunakan layanan kami.</strong></p>
 

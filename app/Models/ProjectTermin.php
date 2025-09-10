@@ -19,10 +19,19 @@ class ProjectTermin extends Model
     protected $fillable = [
         'project_id',
         'harga_termin',
+        'pph',
+        'actual_payment',
         'deskripsi_termin',
         'type_termin',
         'file_attachment_pembayaran', 
         'tanggal_payment'
+    ];
+
+    protected $casts = [
+        'harga_termin'   => 'float',
+        'pph'            => 'float', // persen
+        'actual_payment' => 'float',
+        'tanggal_payment'=> 'date',
     ];
 
     public function getFileAttachmentPembayaranAttribute($value)

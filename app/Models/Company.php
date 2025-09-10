@@ -35,6 +35,7 @@ class Company extends Model
         'currency',
         'account_number',
         'swift_code',
+        'vendor_category',
     ];
 
     public function contactType()

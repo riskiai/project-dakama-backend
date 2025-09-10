@@ -39,6 +39,8 @@ class UpdateRequest extends FormRequest
             'transport' => 'required|numeric|min:0',
             'makan'=> 'required|numeric|min:0',
             'nomor_karyawan' => 'nullable|string|min:1|max:255',
+             'bank_name'      => 'nullable|string|max:100',
+            'account_number' => 'nullable|string|max:50',
         ];
     }
 

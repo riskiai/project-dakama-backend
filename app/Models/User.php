@@ -29,7 +29,10 @@ class User extends Authenticatable
         'password',
         'token',
         'status',
-        'loan'
+        'loan',
+
+        'bank_name',
+        'account_number',
     ];
 
     /**

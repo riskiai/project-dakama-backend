@@ -331,8 +331,8 @@ class LoanController extends Controller
             ]);
 
             $loan->update([
-                'latest' => ($loan->latest) - $request->nominal,
-                'is_settled' => ($loan->latest) - $request->nominal < 1 ? true : false
+                'latest' => ($loan->latest - $request->nominal),
+                'is_settled' => ($loan->latest - $request->nominal) < 1 ? true : false
             ]);
 
             DB::commit();

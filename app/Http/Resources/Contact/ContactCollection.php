@@ -24,6 +24,7 @@ class ContactCollection extends ResourceCollection
                     "name" => $contact->contactType->name,
                 ],
                 "name" => $contact->name,
+                "vendor_category" => $contact->vendor_category,
                 "address" => $contact->address,
                 "attachment_npwp" => asset("storage/$contact->npwp"),
                 "pic_name" => $contact->pic_name,
