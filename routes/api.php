@@ -218,9 +218,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('loan', [MutationController::class, 'getLoan']);
     });
 
-    Route::prefix('operational')->group(function () {
+    /* Route::prefix('operational')->group(function () {
         Route::get('show', [OperationalController::class, 'show']);
         Route::post('save', [OperationalController::class, 'save']);
+    }); */
+
+    Route::prefix('operational')->group(function () {
+        Route::get('/', [OperationalController::class, 'index']);
+        Route::get('all', [OperationalController::class, 'indexall']);
+        Route::post('save', [OperationalController::class, 'save']);
+        Route::get('show/{id}', [OperationalController::class, 'show']);
+        Route::put('update/{id}', [OperationalController::class, 'update']);
+        Route::delete('delete/{id}', [OperationalController::class, 'destroy']);
+        Route::post('restore/{id}', [OperationalController::class, 'restore']);
+
     });
 
     Route::prefix('payroll')->group(function () {

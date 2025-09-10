@@ -48,6 +48,8 @@ class UpdateRequest extends FormRequest
             // 'tasks' => 'nullable|array',
             // 'tasks_id.*' => 'nullable|exists:tasks,id|numeric|min:1',
 
+            'operational_hour_id' => 'required|exists:operational_hours,id',
+
             'tasks_id'   => 'nullable|array',         
             'tasks_id.*' => 'nullable|exists:tasks,id',
         

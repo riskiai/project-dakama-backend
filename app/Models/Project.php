@@ -56,6 +56,7 @@ class Project extends Model
         'id',
         'company_id',
         'user_id',
+        'operational_hour_id',
         'name',
         'billing',
         'cost_estimate',
@@ -186,6 +187,11 @@ class Project extends Model
     public function payrolls()
     {
         return $this->hasMany(Payroll::class, 'project_id', 'id');
+    }
+
+       public function operationalHour(): BelongsTo
+    {
+        return $this->belongsTo(OperationalHour::class, 'operational_hour_id', 'id');
     }
 
     public function scopeForAbsensiUser(Builder $q, int $userId): Builder

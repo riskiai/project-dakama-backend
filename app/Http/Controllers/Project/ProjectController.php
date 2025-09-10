@@ -27,7 +27,7 @@ class ProjectController extends Controller
         $query = Project::query();
 
         // Eager load untuk mengurangi query N+1
-        $query->with(['company', 'user', 'tasks', 'tenagaKerja']);
+        $query->with(['company', 'user', 'tasks', 'tenagaKerja', 'operationalHour']);
 
         $authUser = auth()->user();
 
@@ -225,7 +225,7 @@ class ProjectController extends Controller
         return false;
     }
 
-    public function projectAll()
+    /* public function projectAll()
     {
         $query = Project::query();
 
@@ -239,13 +239,40 @@ class ProjectController extends Controller
         }
 
         // Tambahkan kondisi untuk menyortir data berdasarkan nama proyek
-        $query->orderBy('name', 'asc');
+        $query->orderBy('name', 'desc');
 
         // Ambil daftar proyek yang sudah diurutkan
         $projects = $query->get();
 
         return new ProjectCollection($projects);
+    } */
+
+    public function projectAll()
+    {
+        $query = Project::query();
+
+        $query->with(['company', 'user', 'tenagaKerja', 'operationalHour']);
+
+        $authUser = auth()->user();
+        if ($this->isSupervisor($authUser) || $this->isKaryawan($authUser)) {
+            $query->forAbsensiUser($authUser->id);
+        }
+
+        // Parse tahun & increment dari ID: PRO-25-007
+        $query->selectRaw('projects.*,
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(id, "-", -2), "-", 1) AS UNSIGNED) AS year_num,
+            CAST(SUBSTRING_INDEX(id, "-", -1) AS UNSIGNED) AS seq_num
+        ')
+        ->orderBy('year_num', 'desc')    
+        ->orderBy('seq_num', 'desc')     
+        ->orderBy('updated_at', 'desc')
+        ->orderBy('created_at', 'desc');
+
+        $projects = $query->get();
+
+        return new ProjectCollection($projects);
     }
+
 
     public function indexAll()
     {
@@ -253,7 +280,7 @@ class ProjectController extends Controller
         return new ProjectNameCollection($projects);
     }
 
-    public function nameAll(Request $request)
+    /* public function nameAll(Request $request)
     {
         // 1.  Base query
         $query = Project::query();
@@ -264,7 +291,6 @@ class ProjectController extends Controller
             $query->forAbsensiUser($authUser->id);
         }
 
-        /* ───────── Global search ───────── */
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -286,7 +312,44 @@ class ProjectController extends Controller
             ->get();
 
         return new ProjectNameCollection($projects);
+    } */
+
+    public function nameAll(Request $request)
+    {
+        $query = Project::query();
+
+        $authUser = auth()->user();
+        if ($this->isSupervisor($authUser) || $this->isKaryawan($authUser)) {
+            $query->forAbsensiUser($authUser->id);
+        }
+
+        /* ───────── Global search ───────── */
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('no_dokumen_project', 'like', "%{$search}%")
+                ->orWhereHas('company', fn($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('project')) {
+            $query->where('id', $request->project);
+        }
+
+        // Hanya butuh id & name
+        $projects = $query->select('id', 'name')
+            ->orderByRaw('CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(id, "-", -2), "-", 1) AS UNSIGNED) DESC')
+            ->orderByRaw('CAST(SUBSTRING_INDEX(id, "-", -1) AS UNSIGNED) DESC')
+            ->orderBy('created_at', 'desc')
+            ->when(!$request->filled('search'), fn($q) => $q->limit(5))
+            ->get();
+
+
+        return new ProjectNameCollection($projects);
     }
+
 
     public function show($id)
     {
@@ -486,6 +549,7 @@ class ProjectController extends Controller
             $project->date = $request->date;
             $project->company_id = $company->id;
             $project->user_id = auth()->user()->id;
+            $project->operational_hour_id = $request->operational_hour_id;
             $project->request_status_owner = Project::DEFAULT_STATUS;
             $project->status_bonus_project = Project::DEFAULT_STATUS_NO_BONUS;
             $project->type_projects = $request->type_projects;
@@ -581,6 +645,7 @@ class ProjectController extends Controller
                     'date' => $request->date,
                     'company_id' => $project->company_id,
                     'user_id' => $project->user_id,
+                    'operational_hour_id' => $project->operational_hour_id,
                     'request_status_owner' => $project->request_status_owner,
                     'type_projects' => $project->type_projects,
                     'no_dokumen_project' => $project->no_dokumen_project,

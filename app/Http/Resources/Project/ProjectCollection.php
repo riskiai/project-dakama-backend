@@ -35,6 +35,14 @@ class ProjectCollection extends ResourceCollection
                     'name' => optional($project->company)->name,
                     'contact_type' => optional($project->company)->contactType?->name,
                 ],
+                'operational_hour' => $project->operationalHour ? [
+                    'id'           => $project->operationalHour->id,
+                    'ontime_start' => $project->operationalHour->ontime_start,
+                    'ontime_end'   => $project->operationalHour->ontime_end,
+                    'late_time'    => $project->operationalHour->late_time,
+                    'offtime'      => $project->operationalHour->offtime,
+                ] : null,
+
                /* 'tasks' => $project
                     ->tasksDirect()                     // ← pakai ()
                     ->select('tasks.*')                 // samakan kolom
