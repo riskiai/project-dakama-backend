@@ -21,6 +21,7 @@ class PaymentTerminRequest extends FormRequest
             'deskripsi_termin_proyek' => 'nullable|string',
             'type_termin_proyek' => 'nullable|in:1,2',
             'payment_date_termin_proyek' => 'nullable|date',
+            'pph'                        => 'nullable|numeric|min:0|max:100',
             'attachment_file_termin_proyek' => 'nullable|file|mimes:pdf,png,jpg,jpeg,xlsx,xls,heic|max:3072', 
         ];
     }

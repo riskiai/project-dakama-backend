@@ -236,7 +236,7 @@ class ProjectCollection extends ResourceCollection
     }
 
     /* Termin Proyek */
-     protected function getDataSisaPemabayaranTerminProyek(Project $project)
+    /*  protected function getDataSisaPemabayaranTerminProyek(Project $project)
     {
         // Ambil total billing proyek
         $billing = $project->billing;
@@ -254,11 +254,52 @@ class ProjectCollection extends ResourceCollection
     
         return $sisaPembayaran; // Mengembalikan sisa pembayaran
     }
-    
+
+    protected function getHargaTerminProyek(Project $project)
+    {
+        return $project->projectTermins->sum('harga_termin') ?? null;
+    } */
+
+    // Total termin (ACTUAL) = sum(actual per termin)
+    // - Jika kolom actual_payment null, hitung: harga_termin - (harga_termin * pph/100)
+     private function rupiahInt($value): int
+    {
+        return (int) round((float) ($value ?? 0), 0, PHP_ROUND_HALF_UP);
+    }
+
+    protected function getHargaTerminProyek(Project $project)
+    {
+        // Total ACTUAL (bukan gross), dibulatkan ke rupiah per-termin lalu dijumlahkan sebagai int
+        $totalActual = 0;
+
+        foreach ($project->projectTermins as $termin) {
+            $gross      = $this->rupiahInt($termin->harga_termin);
+            $pphPercent = (float) ($termin->pph ?? 0); // persen 0..100
+            $pphNominal = $this->rupiahInt($gross * ($pphPercent / 100));
+
+            // jika actual_payment ada di DB, pakai itu; kalau null, fallback kalkulasi
+            $actual = is_null($termin->actual_payment)
+                ? $this->rupiahInt($gross - $pphNominal)
+                : $this->rupiahInt($termin->actual_payment);
+
+            $totalActual += $actual; // integer safe
+        }
+
+        return $totalActual; // int
+    }
+
+    // Sisa pembayaran = billing - total ACTUAL (semua int rupiah)
+    protected function getDataSisaPemabayaranTerminProyek(Project $project)
+    {
+        $billing     = $this->rupiahInt($project->billing);
+        $totalActual = $this->getHargaTerminProyek($project);
+
+        $sisa = $billing - $totalActual;
+        return $sisa > 0 ? $sisa : 0; // int
+    }
 
     protected function getLatestPaymentFile(Project $project)
     {
-        // Ambil termin terbaru yang memiliki bukti pembayaran
         $terminWithFile = $project->projectTermins()
             ->whereNotNull('file_attachment_pembayaran')
             ->orderBy('tanggal_payment', 'desc')
@@ -268,17 +309,47 @@ class ProjectCollection extends ResourceCollection
         return $terminWithFile ? asset("storage/{$terminWithFile->file_attachment_pembayaran}") : null;
     }
 
-    protected function getHargaTerminProyek(Project $project)
-    {
-        return $project->projectTermins->sum('harga_termin') ?? null;
-    }
-
     protected function getDeskripsiTerminProyek(Project $project)
     {
         return $project->deskripsi_termin_proyek ?? null;
     }
 
     protected function getRiwayatTermin(Project $project)
+    {
+        return $project->projectTermins->map(function ($termin) {
+            $gross      = $this->rupiahInt($termin->harga_termin);
+            $pphPercent = (float) ($termin->pph ?? 0); // disimpan persen
+
+            // PPh nominal dibulatkan ke rupiah (int)
+            $pphNominal = $this->rupiahInt($gross * ($pphPercent / 100));
+
+            // Actual: pakai kolom jika ada; jika null, fallback kalkulasi (rupiah bulat)
+            $actual = is_null($termin->actual_payment)
+                ? $this->rupiahInt($gross - $pphNominal)
+                : $this->rupiahInt($termin->actual_payment);
+
+            return [
+                'id'               => (int) $termin->id,
+                'harga_termin'     => $gross,      // int
+                'pph'              => [
+                    'percent' => $pphPercent,     // simpan persen apa adanya (boleh float 5.0)
+                    'nominal' => $pphNominal,     // int rupiah
+                ],
+                'actual_payment'   => $actual,     // int rupiah
+                'deskripsi_termin' => $termin->deskripsi_termin,
+                'type_termin_spb'  => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
+                'tanggal'          => $termin->tanggal_payment,
+                'file_attachment'  => $termin->file_attachment_pembayaran
+                    ? [
+                        'name' => pathinfo($termin->file_attachment_pembayaran, PATHINFO_FILENAME),
+                        'link' => asset("storage/{$termin->file_attachment_pembayaran}"),
+                    ]
+                    : null,
+            ];
+        })->toArray();
+    }
+
+    /* protected function getRiwayatTermin(Project $project)
     {
         return $project->projectTermins->map(function ($termin) {
             return [
@@ -295,7 +366,7 @@ class ProjectCollection extends ResourceCollection
                     : null,
             ];
         })->toArray();
-    }
+    } */
 
   /*   protected function convertTypeTermin($status)
     {
