@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class MutationLoan extends Model
 {
+    const TYPE_APPROVAL = 1;
+    const TYPE_PAYMENT = 2;
+
     protected $fillable = [
         'user_id',
         'mutable_id',
@@ -16,6 +19,9 @@ class MutationLoan extends Model
         'total',
         'created_by',
         'description',
+        'payment_at',
+        'payment_method',
+        'type'
     ];
 
     public function mutable()

@@ -9,6 +9,7 @@ use App\Jobs\SendEmailApprovalJob;
 use App\Mail\RegisterMail;
 use App\Mail\SendApprovalMail;
 use App\Models\EmployeeLoan;
+use App\Models\MutationLoan;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -194,12 +195,29 @@ class LoanController extends Controller
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if ($loan->status != EmployeeLoan::STATUS_WAITING) {
-            return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
-        }
+        $invalidTransitions = [
+            EmployeeLoan::STATUS_APPROVED => [
+                'blocked' => [EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_WAITING],
+                'same'    => 'Loan has been approved',
+            ],
+            EmployeeLoan::STATUS_CANCELLED => [
+                'blocked' => [EmployeeLoan::STATUS_APPROVED, EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_WAITING],
+                'same'    => 'Loan has been cancelled',
+            ],
+        ];
 
-        if ($loan->status == EmployeeLoan::STATUS_APPROVED && in_array($request->status, [EmployeeLoan::STATUS_REJECTED, EmployeeLoan::STATUS_WAITING])) {
-            return MessageDakama::warning("Loan has been approved, can't be {$request->status}!");
+        if (isset($invalidTransitions[$loan->status])) {
+            $rules = $invalidTransitions[$loan->status];
+
+            // cek kalau status mau diganti ke blocked
+            if (in_array($request->status, $rules['blocked'], true)) {
+                return MessageDakama::warning("Loan has been {$loan->status}, can't be {$request->status}!");
+            }
+
+            // cek kalau status sama persis
+            if ($request->status === $loan->status) {
+                return MessageDakama::warning($rules['same']);
+            }
         }
 
         $loan->load(['pic', 'user']);
@@ -265,8 +283,14 @@ class LoanController extends Controller
             return MessageDakama::warning('You are not allowed to process loan');
         }
 
+        if ($loan->status != EmployeeLoan::STATUS_APPROVED) {
+            return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
+        }
+
         $validator = Validator::make($request->all(), [
             'nominal' => 'required|numeric|integer',
+            'payment_method' => 'required|max:100',
+            'payment_date' => 'required|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
@@ -275,10 +299,6 @@ class LoanController extends Controller
                 'status_code' => MessageDakama::HTTP_UNPROCESSABLE_ENTITY,
                 'message' => $validator->errors()
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        if ($loan->status != EmployeeLoan::STATUS_APPROVED) {
-            return MessageDakama::warning("Loan has been {$loan->status}, can't be processed!");
         }
 
         if ($request->nominal > $loan->latest) {
@@ -299,8 +319,11 @@ class LoanController extends Controller
                 'decrease' => $request->nominal,
                 'latest' => $loan->user->loan,
                 'total' => $loan->user->loan - $request->nominal,
-                'description' => "Loan payment {$request->nominal} by {$loan->user->name}",
-                'created_by' => $user->id
+                'description' => "Loan payment {$request->nominal} by {$loan->user->name} at {$request->payment_date} with {$request->payment_method}",
+                'created_by' => $user->id,
+                'type' => MutationLoan::TYPE_PAYMENT,
+                'payment_at' => $request->payment_date,
+                'payment_method' => $request->payment_method
             ]);
 
             $loan->user()->update([

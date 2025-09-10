@@ -17,7 +17,7 @@ class Overtime extends Model
     protected $fillable = [
         'user_id',
         'project_id',
-        'task_id',
+        'budget_id',
         'duration',
         'request_date',
         'reason',
@@ -45,9 +45,9 @@ class Overtime extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function task()
+    public function budget()
     {
-        return $this->belongsTo(Task::class);
+        return $this->belongsTo(Budget::class);
     }
 
     public function pic()
@@ -58,5 +58,10 @@ class Overtime extends Model
     public function notification()
     {
         return $this->morphOne(Notification::class, 'notifiable');
+    }
+
+    public function attendance()
+    {
+        return $this->hasOne(Attendance::class);
     }
 }
