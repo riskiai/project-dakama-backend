@@ -229,9 +229,9 @@ class AttendanceController extends Controller
                     ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
-                $duration = round($currentTime->diffInHours($endTime, false), 0);
+                $duration = round($endTime->diffInHours($currentTime, false), 0);
 
-                $attendance = $attendanceCurrent->update([
+                $attendanceCurrent->update([
                     'location_out' => $request->location_out,
                     'location_lat_out' => $request->location_lat_out,
                     'location_long_out' => $request->location_long_out,
@@ -241,6 +241,8 @@ class AttendanceController extends Controller
                     'hourly_overtime_salary' => $user->salary->hourly_overtime_salary * $duration,
                     'type' => 1
                 ]);
+
+                $attendance = $attendanceCurrent;
             }
 
             DB::commit();
@@ -277,10 +279,6 @@ class AttendanceController extends Controller
             ], MessageDakama::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if ($attendance->type == Attendance::ATTENDANCE_TYPE_OVERTIME) {
-            return MessageDakama::warning("You can't update overtime attendance!");
-        }
-
         $user = $attendance->user;
         $operationalHour = $attendance->project->operationalHour;
         if (!$operationalHour) {
@@ -290,12 +288,14 @@ class AttendanceController extends Controller
         $startTime = Carbon::parse($attendance->start_time->format('Y-m-d') . ' ' . $request->start_time);
         $endTime = Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $request->end_time);
 
-        if (strtotime($endTime) > strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->offtime))) {
-            return MessageDakama::warning("End time must be before offtime!");
-        }
+        if ($attendance->type == Attendance::ATTENDANCE_TYPE_NORMAL) {
+            if (strtotime($endTime) > strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->offtime))) {
+                return MessageDakama::warning("End time must be before offtime!");
+            }
 
-        if (strtotime($startTime) < strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->ontime_start))) {
-            return MessageDakama::warning("Start time must be after ontime start!");
+            if (strtotime($startTime) < strtotime(Carbon::parse($attendance->end_time->format('Y-m-d') . ' ' . $operationalHour->ontime_start))) {
+                return MessageDakama::warning("Start time must be after ontime start!");
+            }
         }
 
         $lateCut = 0;
@@ -309,11 +309,23 @@ class AttendanceController extends Controller
 
             $data = [
                 ...$validator->validated(),
-                'late_cut' => $lateCut,
-                'late_minutes' => $lateCut != 0 ? abs($startTime->diffInMinutes($operationalHour->late_time)) : 0,
                 'duration' => $duration,
-                'daily_salary' => $user->salary->hourly_salary * $duration,
             ];
+
+
+            if ($attendance->type == Attendance::ATTENDANCE_TYPE_OVERTIME) {
+                $data = [
+                    ...$data,
+                    'hourly_overtime_salary' => $user->salary->hourly_overtime_salary * $duration
+                ];
+            } else {
+                $data = [
+                    ...$data,
+                    'late_cut' => $lateCut,
+                    'late_minutes' => $lateCut != 0 ? abs($startTime->diffInMinutes($operationalHour->late_time)) : 0,
+                    'daily_salary' => $user->salary->hourly_salary * $duration,
+                ];
+            }
 
             $attendance->update($data);
 
