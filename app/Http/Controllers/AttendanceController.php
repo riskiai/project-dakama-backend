@@ -339,6 +339,8 @@ class AttendanceController extends Controller
 
     public function sync(Request $request)
     {
+        abort(404);
+
         DB::beginTransaction();
 
         $validator = Validator::make($request->all(), [
@@ -365,7 +367,8 @@ class AttendanceController extends Controller
             return MessageDakama::warning("User not attendance!");
         }
 
-        $attendanceIds = $attendances->pluck('id')->toArray();
+        $attendNormalIds = $attendances->where('type', Attendance::ATTENDANCE_TYPE_NORMAL)->pluck('id')->toArray();
+        $attendOverTimeIds = $attendances->where('type', Attendance::ATTENDANCE_TYPE_OVERTIME)->pluck('id')->toArray();
         try {
             Attendance::whereIn('id', $attendanceIds)->update([
                 'daily_salary' => $user->daily_salary,
