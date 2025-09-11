@@ -18,7 +18,7 @@ return new class extends Migration
             $table->dropColumn('task_id');
             $table->dropColumn(['hourly_salary', 'bonus_ontime', 'transport']);
 
-            $table->foreignIdFor(Budget::class)->references('id')->on('budgets');
+            $table->foreignIdFor(Budget::class)->nullable()->references('id')->on('budgets');
 
             $table->enum('status', ['absent', 'in', 'out', 'permit', 'sick'])->default('absent')->change();
         });
@@ -30,7 +30,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('attendances', function (Blueprint $table) {
-            $table->foreignIdFor(Task::class)->references('id')->on('tasks');
+            $table->foreignIdFor(Task::class)->nullable()->references('id')->on('tasks');
             $table->integer('hourly_salary')->default(0);
             $table->integer('transport')->default(0);
             $table->integer('bonus_ontime')->default(0);

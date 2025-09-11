@@ -17,7 +17,7 @@ return new class extends Migration
             $table->dropForeign(['task_id']);
             $table->dropColumn('task_id');
 
-            $table->foreignIdFor(Budget::class)->references('id')->on('budgets');
+            $table->foreignIdFor(Budget::class)->nullable()->references('id')->on('budgets');
         });
     }
 
@@ -27,7 +27,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('overtimes', function (Blueprint $table) {
-            $table->foreignIdFor(Task::class)->references('id')->on('tasks');
+            $table->foreignIdFor(Task::class)->nullable()->references('id')->on('tasks');
             $table->dropForeign(['budget_id']);
             $table->dropColumn('budget_id');
         });
