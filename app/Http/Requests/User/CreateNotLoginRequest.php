@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class CreateNotLoginRequest extends FormRequest
 {
@@ -29,6 +30,13 @@ class CreateNotLoginRequest extends FormRequest
             'makan'=> 'required|numeric|min:0',
              'bank_name'      => 'nullable|string|max:100',
             'account_number' => 'nullable|string|max:50',
+             'nomor_karyawan' => [
+                'nullable',
+                'string',
+                'min:1',
+                'max:255',
+                Rule::unique('users', 'nomor_karyawan'),
+            ],
         ];
     }
 

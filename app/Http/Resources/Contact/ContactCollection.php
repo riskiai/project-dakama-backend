@@ -4,6 +4,7 @@ namespace App\Http\Resources\Contact;
 
 use App\Models\ContactType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class ContactCollection extends ResourceCollection
@@ -26,11 +27,19 @@ class ContactCollection extends ResourceCollection
                 "name" => $contact->name,
                 "vendor_category" => $contact->vendor_category,
                 "address" => $contact->address,
-                "attachment_npwp" => asset("storage/$contact->npwp"),
+                // "attachment_npwp" => asset("storage/$contact->npwp"),
+                // "attachment_npwp" => $contact->npwp 
+                //     ? asset("storage/{$contact->npwp}") 
+                //     : null,
+                "attachment_npwp" => $this->storageOrNull($contact->npwp),
                 "pic_name" => $contact->pic_name,
                 "phone" => $contact->phone,
                 "email" => $contact->email,
-                "attachment_file" => asset("storage/$contact->file"),
+                // "attachment_file" => asset("storage/$contact->file"),
+                // "attachment_file" => $contact->file 
+                //     ? asset("storage/{$contact->file}") 
+                //     : null,
+                "attachment_file" => $this->storageOrNull($contact->file),
                 "bank_name" => $contact->bank_name,
                 "branch" => $contact->branch,
                 "account_name" => $contact->account_name,
@@ -53,5 +62,33 @@ class ContactCollection extends ResourceCollection
             return ContactType::SHORT_VENDOR . $id;
         }
         return ContactType::SHORT_CLIENT . $id;
+    }
+
+      /**
+     * Jika $path kosong / '-' / file tidak ada -> null,
+     * kalau ada -> kembalikan URL asset("storage/...").
+     */
+    protected function storageOrNull($path): ?string
+    {
+        if (empty($path) || $path === '-') {
+            return null;
+        }
+        // Cek eksistensi file di disk 'public' biar tidak jadi "storage/-"
+        return Storage::disk('public')->exists($path)
+            ? asset("storage/{$path}")
+            : null;
+    }
+
+    /**
+     * Ubah '' atau '-' menjadi null (untuk field teks biasa).
+     */
+    protected function nullIfEmpty($value)
+    {
+        if ($value === '-' || $value === '' || $value === null) {
+            return null;
+        }
+        // Optional: trim spasi
+        $trimmed = is_string($value) ? trim($value) : $value;
+        return $trimmed === '' ? null : $trimmed;
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class UpdateRequest extends FormRequest
 {
@@ -38,7 +39,14 @@ class UpdateRequest extends FormRequest
             'hourly_overtime_salary' => 'required|numeric|min:0',
             'transport' => 'required|numeric|min:0',
             'makan'=> 'required|numeric|min:0',
-            'nomor_karyawan' => 'nullable|string|min:1|max:255',
+            // 'nomor_karyawan' => 'nullable|string|min:1|max:255',
+             'nomor_karyawan' => [
+                'nullable',
+                'string',
+                'min:1',
+                'max:255',
+                Rule::unique('users', 'nomor_karyawan'),
+            ],
              'bank_name'      => 'nullable|string|max:100',
             'account_number' => 'nullable|string|max:50',
         ];

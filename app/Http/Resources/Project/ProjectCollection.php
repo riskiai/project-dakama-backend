@@ -97,7 +97,7 @@ class ProjectCollection extends ResourceCollection
                                 $project,
                                 $this->formatMargin($project)   
                             ),
-                'actual_real_cost' => (float) $project->billing - (float) $this->formatMargin($project),
+                'real_margin' => (float) $project->billing - (float) $this->formatMargin($project),
                 'date' => $project->date,
                 'name' => $project->name,
                 'cost_progress_project' => $this->costProgress($project),
