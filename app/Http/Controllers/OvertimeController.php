@@ -82,6 +82,7 @@ class OvertimeController extends Controller
             'request_date'  => 'required|date_format:Y-m-d',
             'reason'        => 'max:255',
             'user_id'        => 'required|exists:users,id',
+            'is_allow_meal'         => 'required|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -119,7 +120,8 @@ class OvertimeController extends Controller
                 'salary_overtime' => 0,
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,
-                'status' => Overtime::STATUS_APPROVED
+                'status' => Overtime::STATUS_APPROVED,
+                'makan' => $request->is_allow_meal == true ? $user->salary->makan : 0
             ]);
 
             $overtime->attendance()->create([
@@ -129,7 +131,8 @@ class OvertimeController extends Controller
                 'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime),
                 'type' => 1,
                 'image_in' => "-",
-                'duration' => 0
+                'duration' => 0,
+                'makan' => $request->is_allow_meal == true ? $user->salary->makan : 0
             ]);
 
             // $this->createNotification($overtime, $user, 'Permintaan Lembur', 'Permintaan lembur dari ' . $user->name);
@@ -187,6 +190,7 @@ class OvertimeController extends Controller
             'budget_id' => 'required|exists:budgets,id',
             'request_date' => 'required|date_format:Y-m-d',
             'reason' => 'max:255',
+            'is_allow_meal' => 'required|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -218,6 +222,7 @@ class OvertimeController extends Controller
                 'budget_id' => $request->budget_id,
                 'project_id' => $request->project_id,
                 'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime)->format('Y-m-d H:i:s'),
+                'makan' => $request->is_allow_meal == 1 ? $overtime->user->salary->makan : 0
             ]);
 
             DB::commit();

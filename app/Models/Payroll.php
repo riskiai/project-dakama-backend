@@ -28,6 +28,12 @@ class Payroll extends Model
         "approved_at",
         "approved_by",
         "reason_approval",
+        "transport",
+        "bonus",
+        "total_hour_attend",
+        "total_hour_overtime",
+        "total_makan_attend",
+        "total_makan_overtime",
     ];
 
     public function pic()

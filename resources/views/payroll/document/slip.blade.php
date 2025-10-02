@@ -1,5 +1,6 @@
 @php
-    $attendances = array_slice($slip['attendances']->toArray(), 0, 7);
+    use Carbon\Carbon;
+    $attendances = array_slice($slip['records'], 0, 7);
     $missing = 7 - count($attendances);
 @endphp
 
@@ -30,8 +31,8 @@
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left">Tanggal</td>
-                    <td class="p-1 text-left">: {{ $slip['attendances']->first()->start_time->format('j') }} sd
-                        {{ $slip['attendances']->last()->start_time->format('j F Y') }}</td>
+                    <td class="p-1 text-left">: {{ Carbon::parse(explode(', ', $slip['range_date'])[0])->format('j') }}
+                        sd {{ Carbon::parse(explode(', ', $slip['range_date'])[1])->format('j F Y') }}</td>
                 </tr>
                 <tr class="text-[12px]">
                     <td class="p-1 text-left">Poss</td>
@@ -39,8 +40,8 @@
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left"></td>
-                    <td class="p-1 text-left">Tempat</td>
-                    <td class="p-1 text-left" style="background-color: yellow;">: {{ $slip['last_placement'] }}</td>
+                    <td class="p-1 text-left">Project</td>
+                    <td class="p-1 text-left">: {{ $slip['last_project'] }}</td>
                 </tr>
                 <tr class="text-[12px]">
                     <td class="p-1 text-left font-bold">Transfer To</td>
@@ -50,44 +51,32 @@
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left"></td>
                     <td class="p-1 text-left"></td>
-                    <td class="p-1 text-left">Project</td>
-                    <td class="p-1 text-left">: {{ $slip['last_project'] }}</td>
                 </tr>
             </table>
         </div>
 
         <!-- Absensi -->
         <?php
-// Contoh range tanggal (misal 1 - 20 Agustus 2025)
-$start = new DateTime($slip['attendances']->first()->start_time);
-$end   = new DateTime($slip['attendances']->last()->start_time);
-
-// Ambil semua tanggal
-$dates = [];
-while ($start <= $end) {
-    $dates[] = clone $start;
-    $start->modify('+1 day');
-}
-
 // Potong data jadi per 7 kolom
-$chunks = array_chunk($dates, 7);
+$chunks = array_chunk($slip["records"], 7);
+// dd($chunks);
  $missing = 7 - count($chunks);
  $totalJHK = [];
  $totalJJL = 0;
 // Render tabel
-foreach ($chunks as $week) {
+foreach ($chunks as $record) {
 ?>
         <table style="table-layout: fixed" class="w-full border-collapse">
             <thead class="border-y border-black">
                 <tr class="text-[12px]">
                     <td class="border-r border-t border-black p-1">Tgl</td>
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     <td class="border-r border-t border-black p-1 text-center">
-                        <?= $d->format('j') ?>
+                        <?= $d['date'] ?>
                     </td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-black p-1"></td>
                     <?php endfor; ?>
 
@@ -95,14 +84,14 @@ foreach ($chunks as $week) {
                 </tr>
                 <tr class="text-[12px]">
                     <td class="border-r border-black p-1">Hari</td>
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     <td
-                        class="border-r border-t border-black p-1 text-center {{ substr('MSSRKJS', $d->format('w'), 1) == 'M' ? 'bg-red-600' : '' }}">
-                        <?= substr('MSSRKJS', $d->format('w'), 1) ?>
+                        class="border-r border-t border-black p-1 text-center {{ $d['is_weekend'] ? 'bg-red-600' : '' }}">
+                        <?= $d['day_name_single'] ?>
                     </td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-black p-1"></td>
                     <?php endfor; ?>
 
@@ -112,12 +101,13 @@ foreach ($chunks as $week) {
             <tbody>
                 <tr class="text-[12px]">
                     <td class="border-r border-t border-black p-1">Customer</td>
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     <td class="border-r border-t border-black p-1 text-center">
-                        {{ $slip['attendances'][$d->format('Y-m-d')]->project->company->contactType->name }}</td>
+                        {{ $d['attendance'] ? $d['attendance']->project->company->contactType->name : '' }}
+                    </td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-black p-1"></td>
                     <?php endfor; ?>
 
@@ -126,12 +116,12 @@ foreach ($chunks as $week) {
                 </tr>
                 <tr class="text-[12px]">
                     <td class="border-r border-t border-black p-1">Project</td>
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     <td class="border-r border-t border-black p-1 text-center">
-                        {{ $slip['attendances'][$d->format('Y-m-d')]->project->name }}</td>
+                        {{ $d['attendance'] ? $d['attendance']->project->name : '' }}</td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-black p-1"></td>
                     <?php endfor; ?>
 
@@ -141,21 +131,22 @@ foreach ($chunks as $week) {
                 <tr class="text-[12px]">
                     <td class="border-t border-r border-black p-1">JHK</td>
                     @php
-                        $data = [];
+                        $totalJHK = 0;
                     @endphp
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     @php
-                        $data[] = $slip['attendances'][$d->format('Y-m-d')];
-                        $totalJHK[] = $data;
+                        if ($d['attendance']) {
+                            $totalJHK += 1;
+                        }
                     @endphp
-                    <td class="border-r border-t border-black p-1 text-center">1</td>
+                    <td class="border-r border-t border-black p-1 text-center">{{ $d['attendance'] ? 1 : '' }}</td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-black p-1"></td>
                     <?php endfor; ?>
 
-                    <td class="border-r border-t border-black p-1 text-right">{{ count($data) }}</td>
+                    <td class="border-r border-t border-black p-1 text-right">{{ $totalJHK }}</td>
                     <td class="border-t border-black p-1">Hari</td>
                 </tr>
                 <tr class="text-[12px]">
@@ -163,19 +154,19 @@ foreach ($chunks as $week) {
                     @php
                         $dataOvertimes = 0;
                     @endphp
-                    <?php foreach ($week as $d): ?>
+                    <?php foreach ($record as $d): ?>
                     <td class="border-r border-t border-b border-black p-1 text-center">
-                        @isset($slip['overtimes'][$d->format('Y-m-d')])
+                        @if ($d['overtime'])
                             @php
-                                $dataOvertimes += $slip['overtimes'][$d->format('Y-m-d')]->duration;
+                                $dataOvertimes += $d['overtime']->duration;
                                 $totalJJL += $dataOvertimes;
                             @endphp
-                            {{ $slip['overtimes'][$d->format('Y-m-d')]->duration }}
-                        @endisset
+                            {{ $d['overtime']->duration }}
+                        @endif
                     </td>
                     <?php endforeach; ?>
 
-                    <?php for ($i = count($week); $i < 7; $i++): ?>
+                    <?php for ($i = count($record); $i < 7; $i++): ?>
                     <td class="border-r border-t border-b border-black p-1"></td>
                     <?php endfor; ?>
 
@@ -190,55 +181,42 @@ foreach ($chunks as $week) {
 
 $totalAmount = 0;
 
-$totalAmount += count($totalJHK) * $slip['reports'][0]['rate'];
-$totalAmount += $totalJJL * $slip['reports'][1]['rate'];
-$totalAmount += count($totalJHK) * $slip['reports'][2]['rate'];
-$totalAmount += $slip['bonus_jhk'] * $slip['reports'][3]['rate'];
+// $totalAmount += count($totalJHK) * $slip['reports'][0]['rate'];
+// $totalAmount += $totalJJL * $slip['reports'][1]['rate'];
+// $totalAmount += count($totalJHK) * $slip['reports'][2]['rate'];
+// $totalAmount += $slip['bonus_jhk'] * $slip['reports'][3]['rate'];
 ?>
 
         <!-- Rekap -->
         <table class="w-full my-3 border-collapse">
-            <tr class="text-[12px]">
-                <td class="p-1">JHK</td>
-                <td class="p-1 text-right">{{ count($totalJHK) }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][0]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format(count($totalJHK) * $slip['reports'][0]['rate'], 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">JJL</td>
-                <td class="p-1 text-right">{{ $totalJJL }} Jam</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][1]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">{{ number_format($totalJJL * $slip['reports'][1]['rate'], 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">Makan</td>
-                <td class="p-1 text-right">{{ count($totalJHK) }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][2]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format(count($totalJHK) * $slip['reports'][2]['rate'], 0, ',', '.') }}</td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">Bonus</td>
-                <td class="p-1 text-right">{{ $slip['bonus_jhk'] }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][3]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format($slip['bonus_jhk'] * $slip['reports'][3]['rate'], 0, ',', '.') }}</td>
-            </tr>
+            @foreach ($slip['reports'] as $item)
+                @php
+                    $totalAmount += $item['total'];
+                @endphp
+                <tr class="text-[12px]">
+                    <td class="p-1">{{ $item['label'] }}</td>
+                    <td class="p-1 text-right">{{ $item['amount'] }}</td>
+                    <td class="p-1 text-right">X</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="p-1 text-right">{{ number_format($item['rate'], 0, ',', '.') }}</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="text-right p-1">
+                        {{ number_format($item['total'], 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endforeach
+            @foreach ($slip['report_others'] as $item)
+                @php
+                    $totalAmount += $item['total'];
+                @endphp
+                <tr class="text-[12px]">
+                    <td class="p-1" colspan="5">{{ $item['label'] }}</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="text-right p-1">
+                        {{ number_format($item['total'], 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endforeach
         </table>
         <table class="w-full font-bold border-collapse mb-3">
             <tr class="text-[12px]">
@@ -249,18 +227,45 @@ $totalAmount += $slip['bonus_jhk'] * $slip['reports'][3]['rate'];
         </table>
         <table class="w-full text-red-600 italic border-collapse">
             <tr class="text-[12px]">
-                <td class="p-1 border-r border-b border-t border-black text-left">Kasbon</td>
-                <td class="p-1 border border-black text-right">Rp</td>
-                <td class="p-1 border-b border-t border-black text-right">
+                <td class="p-1 border-b border-t border-black text-left">Kasbon</td>
+                <td class="p-1 border-t border-b border-black text-left">Sisa Kasbon</td>
+                <td class="p-1 border-t border-b border-black text-right">Rp</td>
+                <td class="p-1 border-t border-b border-black text-right">
                     {{ number_format($slip['kasbon'], 0, ',', '.') }}</td>
+            </tr>
+            @foreach ($slip['kasbon_list'] as $kasbon)
+                <tr class="text-[12px]">
+                    <td class="p-1 border-b border-r border-black text-right" style="padding-right: 20px">
+                        {{ $kasbon->payment_method }}</td>
+                    <td class="p-1 border-b border-black text-left" style="padding-left: 20px">
+                        {{ Carbon::parse($kasbon->payment_at)->format('d-M') }}</td>
+                    <td class="p-1 border-b border-black text-right">Rp</td>
+                    <td class="p-1 border-b border-black text-right">
+                        {{ number_format($kasbon->decrease, 0, ',', '.') }}</td>
+                </tr>
+            @endforeach
+            <tr class="text-[12px]">
+                <td class="p-1 border-b border-r border-black text-right" style="padding-right: 20px; color: white">
+                    test</td>
+                <td class="p-1 border-b border-black text-left" style="padding-left: 20px; color: white">
+                    test</td>
+                <td class="p-1 border-b border-black text-right" style=" color: white">Rp</td>
+                <td class="p-1 border-b border-black text-right" style=" color: white">
+                    test</td>
             </tr>
         </table>
         <table class="w-full font-bold border-collapse">
             <tr class="text-[12px]">
                 <td class="p-1 border-y border-r border-black text-left">Total Bayar</td>
-                <td class="p-1 border-y border-r border-black text-right">Rp</td>
-                <td class="p-1 border-y border-black text-right">
+                <td class="p-1 border-black text-left">Rp</td>
+                <td class="p-1 border-black text-right">
                     {{ number_format($totalAmount - $slip['kasbon'], 0, ',', '.') }}</td>
+            </tr>
+        </table>
+        <table class="w-full font-bold border-collapse ">
+            <tr class="text-[12px]">
+                <td class="p-1 text-center border-t" style="background-color: yellow">Catatan : {{ $slip['notes'] }}
+                </td>
             </tr>
         </table>
     </div>

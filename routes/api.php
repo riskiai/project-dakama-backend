@@ -242,6 +242,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/show/{id}', [PayrollController::class, 'show']);
         Route::put('/approval/{id}', [PayrollController::class, 'approval']);
         Route::delete('/destroy/{id}', [PayrollController::class, 'destroy']);
+        Route::delete('/remove-document/{id}', [PayrollController::class, 'removeDocument']);
     });
 
     Route::prefix('permission')->group(function () {

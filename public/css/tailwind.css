@@ -238,6 +238,9 @@
     }
 }
 @layer utilities {
+    .bg-yellow-300 {
+        background-color: yellow;
+    }
     .my-3 {
         margin-block: 12px;
     }
