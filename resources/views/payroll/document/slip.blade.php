@@ -190,55 +190,42 @@ foreach ($chunks as $week) {
 
 $totalAmount = 0;
 
-$totalAmount += count($totalJHK) * $slip['reports'][0]['rate'];
-$totalAmount += $totalJJL * $slip['reports'][1]['rate'];
-$totalAmount += count($totalJHK) * $slip['reports'][2]['rate'];
-$totalAmount += $slip['bonus_jhk'] * $slip['reports'][3]['rate'];
+// $totalAmount += count($totalJHK) * $slip['reports'][0]['rate'];
+// $totalAmount += $totalJJL * $slip['reports'][1]['rate'];
+// $totalAmount += count($totalJHK) * $slip['reports'][2]['rate'];
+// $totalAmount += $slip['bonus_jhk'] * $slip['reports'][3]['rate'];
 ?>
 
         <!-- Rekap -->
         <table class="w-full my-3 border-collapse">
-            <tr class="text-[12px]">
-                <td class="p-1">JHK</td>
-                <td class="p-1 text-right">{{ count($totalJHK) }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][0]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format(count($totalJHK) * $slip['reports'][0]['rate'], 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">JJL</td>
-                <td class="p-1 text-right">{{ $totalJJL }} Jam</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][1]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">{{ number_format($totalJJL * $slip['reports'][1]['rate'], 0, ',', '.') }}
-                </td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">Makan</td>
-                <td class="p-1 text-right">{{ count($totalJHK) }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][2]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format(count($totalJHK) * $slip['reports'][2]['rate'], 0, ',', '.') }}</td>
-            </tr>
-            <tr class="text-[12px]">
-                <td class="p-1">Bonus</td>
-                <td class="p-1 text-right">{{ $slip['bonus_jhk'] }} Hr</td>
-                <td class="p-1 text-right">X</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="p-1 text-right">{{ number_format($slip['reports'][3]['rate'], 0, ',', '.') }}</td>
-                <td class="p-1 text-right">Rp</td>
-                <td class="text-right p-1">
-                    {{ number_format($slip['bonus_jhk'] * $slip['reports'][3]['rate'], 0, ',', '.') }}</td>
-            </tr>
+            @foreach ($slip['reports'] as $item)
+                @php
+                    $totalAmount += $item['total'];
+                @endphp
+                <tr class="text-[12px]">
+                    <td class="p-1">{{ $item['label'] }}</td>
+                    <td class="p-1 text-right">{{ $item['amount'] }}</td>
+                    <td class="p-1 text-right">X</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="p-1 text-right">{{ number_format($item['rate'], 0, ',', '.') }}</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="text-right p-1">
+                        {{ number_format($item['total'], 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endforeach
+            @foreach ($slip['report_others'] as $item)
+                @php
+                    $totalAmount += $item['total'];
+                @endphp
+                <tr class="text-[12px]">
+                    <td class="p-1" colspan="5">{{ $item['label'] }}</td>
+                    <td class="p-1 text-right">Rp</td>
+                    <td class="text-right p-1">
+                        {{ number_format($item['total'], 0, ',', '.') }}
+                    </td>
+                </tr>
+            @endforeach
         </table>
         <table class="w-full font-bold border-collapse mb-3">
             <tr class="text-[12px]">

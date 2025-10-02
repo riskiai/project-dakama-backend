@@ -85,6 +85,8 @@ class PayrollController extends Controller
             'loan'          => 'required_if:is_all_loan,false|nullable|integer',
             'notes'         => 'max:255',
             'pic_id'        => 'required|exists:users,id',
+            'bonus'         => 'required|numeric|min:0',
+            'transport'         => 'required|numeric|min:0'
         ]);
 
         if ($validator->fails()) {
@@ -103,27 +105,33 @@ class PayrollController extends Controller
         $end = $request->end_date;
         $userTarget = User::find($request->user_id);
 
-        $attendCount = Attendance::selectRaw("count(id) as total_working_day, sum(daily_salary + makan + transport + bonus_ontime) as total_salary, sum(late_cut) as total_late_cut")
+        $attendCount = Attendance::selectRaw("count(id) as total_working_day, sum(daily_salary) as total_salary, sum(late_cut) as total_late_cut, sum(duration) as total_duration, sum(makan) as total_makan")
             ->where('is_settled', 0)
             ->whereBetween('start_time', [$start, $end])
             ->where('type', 0)
+            ->where('user_id', $userTarget->id)
             ->first();
+
 
         if ($attendCount->total_working_day < 1) {
             return MessageDakama::warning("User '{$userTarget->name}' doesn't have working day in {$start} to {$end}");
         }
 
-        $overTimeCount = Attendance::selectRaw("sum(duration) as total_overtime_hour, sum(hourly_overtime_salary * duration) as total_salary_overtime, sum(makan) as total_makan")
+        $overTimeCount = Attendance::selectRaw("sum(duration) as total_overtime_hour, sum(hourly_overtime_salary) as total_salary_overtime, sum(makan) as total_makan")
             ->where('is_settled', 0)
             ->whereBetween('start_time', [$start, $end])
             ->where('type', 1)
+            ->where('user_id', $userTarget->id)
             ->first();
 
-
         $totalWorkingDay = $attendCount->total_working_day ?? 0;
+        $totalHourAttend = $attendCount->total_duration ?? 0;
         $totalSalaryWorking = $attendCount->total_salary ?? 0;
         $totalLateCut = $attendCount->total_late_cut ?? 0;
-        $totalSalaryOvertime = $overTimeCount->total_salary_overtime  + $overTimeCount->total_makan;
+        $totalSalaryOvertime = $overTimeCount->total_salary_overtime;
+        $totalHourOvertime = $overTimeCount->total_overtime_hour ?? 0;
+        $totalMakanAttend = $attendCount->total_makan ?? 0;
+        $totakMakanOvertime = $overTimeCount->total_makan ?? 0;
         $totalLoan = 0;
 
         if ($request->is_all_loan == true) {
@@ -151,7 +159,19 @@ class PayrollController extends Controller
                 "total_loan" => $totalLoan,
                 "datetime" => "{$start}, {$end}",
                 "notes" => $request->notes,
+                "transport" => $request->transport,
+                "bonus" => $request->bonus,
+                "total_hour_attend" => $totalHourAttend,
+                "total_hour_overtime" => $totalHourOvertime,
+                "total_makan_attend" => $totalMakanAttend,
+                "total_makan_overtime" => $totakMakanOvertime
             ]);
+
+            Attendance::where('is_settled', 0)
+                ->whereBetween('start_time', [$start, $end])
+                ->update([
+                    'is_settled' => 2 // pending
+                ]);
 
             $this->createNotification($payroll, $user, 'Berita Gajian', "Berita gajian untuk {$userTarget->name} dari {$start} sampai {$end} telah dibuat oleh {$user->name}");
 
@@ -318,7 +338,8 @@ class PayrollController extends Controller
             abort(404);
         }
 
-        $payroll = Payroll::with(['user.role', 'user.salary'])->find($id);
+        $payroll = Payroll::with(['user.role', 'user.salary', 'user.divisi'])->find($id);
+        // dd($payroll->toArray());
         if (!$payroll) {
             abort(404);
         }
@@ -330,15 +351,17 @@ class PayrollController extends Controller
         $operationalHour = OperationalHour::first();
 
         $dateTime = explode(', ', $payroll->datetime);
-        $attendances = Attendance::with(['project.company.contactType', 'task', 'overtime'])
+        $attendances = Attendance::with(['project.company.contactType', 'budget', 'overtime'])
             ->where('type', 0)
+            ->where('user_id', $payroll->user_id)
             ->whereBetween('start_time', $dateTime)
             ->get()
             ->keyBy(function ($row) {
                 return Carbon::parse($row->start_time)->format('Y-m-d');
             });
-        $overtimes = Attendance::with(['project.company.contactType', 'task', 'overtime'])
+        $overtimes = Attendance::with(['project.company.contactType', 'budget', 'overtime'])
             ->where('type', 1)
+            ->where('user_id', $payroll->user_id)
             ->whereBetween('start_time', $dateTime)
             ->get()
             ->keyBy(function ($row) {
@@ -348,37 +371,47 @@ class PayrollController extends Controller
         $slip = [
             "company_name" => config('app.name'),
             "target_name" =>  $payroll->user->name,
-            "target_poss" => $payroll->user->role->role_name,
-            "payout_account" => "BAK BUMI ARKAT - 1022 118676",
+            "target_poss" => $payroll->user->divisi->name,
+            "payout_account" => "{$payroll->user->bank_name} - {$payroll->user->account_number}",
             "range_date" => $payroll->datetime,
-            "last_placement" => $attendances->last()->project->name ?? null,
-            "last_project" => $attendances->last()->task->nama_task ?? null,
+            "last_project" => $attendances->last()->project->name ?? null,
+            "last_placement" => $attendances->last()->budget->nama_budget ?? null,
             "attendances" => $attendances,
             "overtimes" => $overtimes,
             "reports" => [
                 [
                     "label" => "JHK",
-                    "amount" => "{$payroll->total_attendance} Hr",
-                    "rate" => $payroll->user->salary->daily_salary,
+                    "amount" => "{$payroll->total_hour_attend} Jam",
+                    "rate" => $payroll->user->salary->hourly_salary,
                     "total" => $payroll->total_daily_salary,
                 ],
                 [
                     "label" => "JJL",
-                    "amount" => "{$overtimes->count()} Jam",
+                    "amount" => "{$payroll->total_hour_overtime} Jam",
                     "rate" => $payroll->user->salary->hourly_overtime_salary,
                     "total" => $payroll->total_overtime,
                 ],
                 [
                     "label" => "Makan",
-                    "amount" => null,
+                    "amount" => $payroll->total_attendance + collect($overtimes)->where("makan", "!=", "0")->count() . " Hr",
                     "rate" => $payroll->user->salary->makan,
                     "total" => $attendances->sum('makan') + $overtimes->sum('makan'),
                 ],
+                // [
+                //     "label" => "Total Bonus",
+                //     "amount" => "{$payroll->total_attendance} Hr",
+                //     "rate" => $operationalHour->bonus,
+                //     "total" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->sum('bonus_ontime'),
+                // ],
+            ],
+            "report_others" => [
                 [
-                    "label" => "Total Bonus",
-                    "amount" => "{$payroll->total_attendance} Jam",
-                    "rate" => $operationalHour->bonus,
-                    "total" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->sum('bonus_ontime'),
+                    "label" => "Bonus",
+                    "total" => $payroll->bonus
+                ],
+                [
+                    "label" => "Transport",
+                    "total" => $payroll->transport
                 ],
             ],
             "bonus_jhk" => $attendances->where('bonus_ontime', '>', 0)->where('type', 0)->count(),

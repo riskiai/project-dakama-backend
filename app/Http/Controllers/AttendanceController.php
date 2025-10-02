@@ -165,6 +165,10 @@ class AttendanceController extends Controller
             'budget_id'  => $request->validated('budget_id'),
             'type'       => $request->validated('type')
         ])->whereDate('start_time', $currentTime)->first();
+        if (!$attendanceCurrent && $request->type == Attendance::ATTENDANCE_TYPE_OVERTIME) {
+            return MessageDakama::warning("User attendance not found!");
+        }
+
         if ($attendanceCurrent && $attendanceCurrent->type == Attendance::ATTENDANCE_TYPE_NORMAL) {
             return MessageDakama::warning("User already attendance now!");
         }
@@ -212,7 +216,8 @@ class AttendanceController extends Controller
                     'daily_salary' => $user->salary->hourly_salary * $duration,
                     'type' => 0,
                     'late_cut' => $lateCut,
-                    'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0
+                    'late_minutes' => $lateCut != 0 ? abs($currentTime->diffInMinutes($operationalHour->late_time)) : 0,
+                    'makan' => $user->salary->makan
                 ]);
             } else {
                 $validator = Validator::make($request->all(), [
