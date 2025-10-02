@@ -190,6 +190,7 @@ class OvertimeController extends Controller
             'budget_id' => 'required|exists:budgets,id',
             'request_date' => 'required|date_format:Y-m-d',
             'reason' => 'max:255',
+            'is_allow_meal' => 'required|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -221,6 +222,7 @@ class OvertimeController extends Controller
                 'budget_id' => $request->budget_id,
                 'project_id' => $request->project_id,
                 'start_time' => Carbon::parse($request->request_date . ' ' . $operationalHour->offtime)->format('Y-m-d H:i:s'),
+                'makan' => $request->is_allow_meal == 1 ? $overtime->user->salary->makan : 0
             ]);
 
             DB::commit();
