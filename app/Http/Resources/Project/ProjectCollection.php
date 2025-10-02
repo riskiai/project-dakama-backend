@@ -337,7 +337,7 @@ class ProjectCollection extends ResourceCollection
                 ],
                 'actual_payment'   => $actual,     // int rupiah
                 'deskripsi_termin' => $termin->deskripsi_termin,
-                'type_termin_spb'  => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
+                'riwayat_type_termin_proyek'  => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
                 'tanggal'          => $termin->tanggal_payment,
                 'file_attachment'  => $termin->file_attachment_pembayaran
                     ? [
