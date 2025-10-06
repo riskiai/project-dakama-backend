@@ -1012,10 +1012,16 @@ class ProjectController extends Controller
             $typeTerminStr = (string) $request->input('type_termin_proyek');
 
             // Idempotency check (tanggal + nominal gross sama)
-            $exists = $project->projectTermins()
+            /* $exists = $project->projectTermins()
                 ->where('harga_termin', $request->harga_termin_proyek)
                 ->where('tanggal_payment', $request->payment_date_termin_proyek)
+                ->exists(); */
+            $exists = $project->projectTermins()
+                ->where('harga_termin', $request->harga_termin_proyek)
+                ->where('actual_payment', $request->actual_payment)
+                ->whereDate('tanggal_payment', $request->payment_date_termin_proyek)
                 ->exists();
+
 
             if ($exists) {
                 DB::rollBack();
@@ -1025,23 +1031,31 @@ class ProjectController extends Controller
                 ], 200);
             }
 
-            // ====== Hitung PPh (PERSEN) & actual ======
-            $hargaTermin = (float) $request->harga_termin_proyek;
-            $pphPercent  = (float) ($request->pph ?? 0);                 // contoh: 2 = 2%
-            $pphNominal  = round($hargaTermin * ($pphPercent / 100), 2); // hasil kalkulasi
-            $actual      = max(0, $hargaTermin - $pphNominal);
+            // ====== Ambil gross & actual dari input (USER INPUT) ======
+            $hargaTermin = (float) $request->input('harga_termin_proyek', 0);
+            $actualInput = (float) $request->input('actual_payment', 0);
 
-            // Insert termin (simpan pph = PERSEN)
+            // Safety: actual tidak boleh melebihi gross (meski sudah divalidasi lte)
+            if ($actualInput > $hargaTermin) {
+                $actualInput = $hargaTermin;
+            }
+
+            // ====== Hitung PPh dari selisih gross vs actual ======
+            $pphNominal = round(max(0, $hargaTermin - $actualInput), 2);
+            $pphPercent = $hargaTermin > 0 ? round(($pphNominal / $hargaTermin) * 100, 2) : 0.0;
+
+            // ====== Simpan termin ======
             $termin = ProjectTermin::create([
                 'project_id'                 => $project->id,
-                'harga_termin'               => $hargaTermin,
-                'pph'                        => $pphPercent,     // DISIMPAN sebagai persen
-                'actual_payment'             => $actual,         // bersih
+                'harga_termin'               => $hargaTermin,    // gross (input)
+                'pph'                        => $pphPercent,     // SIMPAN sebagai persen (hasil hitung)
+                'actual_payment'             => $actualInput,    // net (input user)
                 'deskripsi_termin'           => $request->deskripsi_termin_proyek,
                 'type_termin'                => $typeTerminStr,
                 'tanggal_payment'            => $request->payment_date_termin_proyek,
                 'file_attachment_pembayaran' => $fileAttachment,
             ]);
+
 
             // Agregat proyek (gross-based seperti semula)
             $totalTerminGross = $project->projectTermins()->sum('harga_termin');
@@ -1079,6 +1093,134 @@ class ProjectController extends Controller
             ], 500);
         }
     }
+
+    public function updateTermin(UpdatePaymentTerminRequest $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $project = Project::with(['projectTermins'])
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $lastUpdatedTerminData = null;
+
+            foreach ($request->riwayat_termin as $index => $terminData) {
+                // Pastikan termin milik project ini
+                $termin = $project->projectTermins
+                    ->where('id', (int) $terminData['id'])
+                    ->first();
+
+                if (!$termin) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status'  => 'ERROR',
+                        'message' => "Termin with ID {$terminData['id']} not found for this project!",
+                    ], 404);
+                }
+
+                // Path file lama (jika ada)
+                $fileAttachmentPath = $termin->file_attachment_pembayaran;
+
+                // Cek file baru: riwayat_termin[{$index}][attachment_file_termin_proyek]
+                $fileKey = "riwayat_termin.$index.attachment_file_termin_proyek";
+                if ($request->hasFile($fileKey)) {
+                    $file = $request->file($fileKey);
+
+                    if (!$file || !$file->isValid()) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status'  => 'ERROR',
+                            'message' => 'File upload failed',
+                        ], 400);
+                    }
+
+                    // Hapus file lama jika ada
+                    if ($fileAttachmentPath && Storage::disk('public')->exists($fileAttachmentPath)) {
+                        Storage::disk('public')->delete($fileAttachmentPath);
+                    }
+                    // Simpan file baru
+                    $fileAttachmentPath = $file->store(Project::ATTACHMENT_FILE_TERMIN_PROYEK, 'public');
+                }
+
+                // =======================
+                // Hitung PPh dari selisih
+                // =======================
+                $gross = (float) ($terminData['harga_termin_proyek'] ?? 0);
+
+                // actual_payment input user; jika tidak dikirim (nullable),
+                // gunakan nilai yang sudah tersimpan agar tidak memaksa overwrite.
+                $actualInput = array_key_exists('actual_payment', $terminData)
+                    ? (float) ($terminData['actual_payment'] ?? 0)
+                    : (float) ($termin->actual_payment ?? 0);
+
+                // Safety: actual tidak boleh melebihi gross
+                if ($actualInput > $gross) {
+                    $actualInput = $gross;
+                }
+
+                // PPh nominal & persen
+                $pphNominal = max(0.0, $gross - $actualInput);
+                $pphPercent = $gross > 0 ? round(($pphNominal / $gross) * 100, 2) : 0.0;
+
+                // Update termin
+                $termin->update([
+                    'harga_termin'               => $gross,
+                    'pph'                        => $pphPercent,                    // simpan sebagai persen
+                    'actual_payment'             => $actualInput,                   // simpan input user
+                    'deskripsi_termin'           => $terminData['deskripsi_termin_proyek'],
+                    'type_termin'                => (string) $terminData['type_termin_proyek'],
+                    'tanggal_payment'            => $terminData['payment_date_termin_proyek'],
+                    'file_attachment_pembayaran' => $fileAttachmentPath,
+                ]);
+
+                $lastUpdatedTerminData = $terminData;
+            }
+
+            // ============================
+            // Ringkasan proyek: GROSS-BASED
+            // ============================
+            // total gross (bukan total actual)
+            $totalTerminGross = (float) $project->projectTermins()->sum('harga_termin');
+
+            // Termin terbaru untuk metadata file & tanggal
+            $latestTermin = $project->projectTermins()
+                ->orderBy('tanggal_payment', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            // Update metadata proyek (deskripsi & type terakhir dari payload + gross)
+            $project->update([
+                'deskripsi_termin_proyek'    => $lastUpdatedTerminData['deskripsi_termin_proyek'] ?? $project->deskripsi_termin_proyek,
+                'file_pembayaran_termin'     => $latestTermin?->file_attachment_pembayaran ?: null,
+                'payment_date_termin_proyek' => $latestTermin?->tanggal_payment,
+                'harga_termin_proyek'        => $totalTerminGross, // total GROSS, selaras dengan create
+                'type_termin_proyek'         => json_encode([
+                    'id'   => ($totalTerminGross >= (float) $project->billing)
+                        ? Project::TYPE_TERMIN_PROYEK_LUNAS
+                        : Project::TYPE_TERMIN_PROYEK_BELUM_LUNAS,
+                    'name' => ($totalTerminGross >= (float) $project->billing) ? 'Lunas' : 'Belum Lunas',
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'SUCCESS',
+                'message' => 'Termin updated successfully!',
+            ], 200);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return response()->json([
+                'status'  => 'ERROR',
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
 
     /* public function updateTermin(UpdatePaymentTerminRequest $request, $id)
     {
@@ -1189,7 +1331,7 @@ class ProjectController extends Controller
         }
     } */
 
-    public function updateTermin(UpdatePaymentTerminRequest $request, $id)
+   /*  public function updateTermin(UpdatePaymentTerminRequest $request, $id)
     {
         DB::beginTransaction();
 
@@ -1317,7 +1459,8 @@ class ProjectController extends Controller
                 'message' => $th->getMessage(),
             ], 500);
         }
-    }
+    } */
+
 
 
     /* public function deleteTermin(Request $request, $id)

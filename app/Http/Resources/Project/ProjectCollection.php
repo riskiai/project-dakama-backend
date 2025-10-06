@@ -85,7 +85,8 @@ class ProjectCollection extends ResourceCollection
                 ->budgetsDirect()
                 ->orderByDesc('created_at')  
                 ->pluck('nominal')          
-                ->toArray(), */
+                ->toArray(), 
+                */
 
                 'total_budgets_estimasi' => (float) $project
                 ->budgetsDirect()
@@ -236,7 +237,12 @@ class ProjectCollection extends ResourceCollection
     }
 
     /* Termin Proyek */
-    /*  protected function getDataSisaPemabayaranTerminProyek(Project $project)
+     private function rupiahInt($value): int
+    {
+        return (int) round((float) ($value ?? 0), 0, PHP_ROUND_HALF_UP);
+    }
+
+     protected function getDataSisaPemabayaranTerminProyek(Project $project)
     {
         // Ambil total billing proyek
         $billing = $project->billing;
@@ -258,44 +264,6 @@ class ProjectCollection extends ResourceCollection
     protected function getHargaTerminProyek(Project $project)
     {
         return $project->projectTermins->sum('harga_termin') ?? null;
-    } */
-
-    // Total termin (ACTUAL) = sum(actual per termin)
-    // - Jika kolom actual_payment null, hitung: harga_termin - (harga_termin * pph/100)
-     private function rupiahInt($value): int
-    {
-        return (int) round((float) ($value ?? 0), 0, PHP_ROUND_HALF_UP);
-    }
-
-    protected function getHargaTerminProyek(Project $project)
-    {
-        // Total ACTUAL (bukan gross), dibulatkan ke rupiah per-termin lalu dijumlahkan sebagai int
-        $totalActual = 0;
-
-        foreach ($project->projectTermins as $termin) {
-            $gross      = $this->rupiahInt($termin->harga_termin);
-            $pphPercent = (float) ($termin->pph ?? 0); // persen 0..100
-            $pphNominal = $this->rupiahInt($gross * ($pphPercent / 100));
-
-            // jika actual_payment ada di DB, pakai itu; kalau null, fallback kalkulasi
-            $actual = is_null($termin->actual_payment)
-                ? $this->rupiahInt($gross - $pphNominal)
-                : $this->rupiahInt($termin->actual_payment);
-
-            $totalActual += $actual; // integer safe
-        }
-
-        return $totalActual; // int
-    }
-
-    // Sisa pembayaran = billing - total ACTUAL (semua int rupiah)
-    protected function getDataSisaPemabayaranTerminProyek(Project $project)
-    {
-        $billing     = $this->rupiahInt($project->billing);
-        $totalActual = $this->getHargaTerminProyek($project);
-
-        $sisa = $billing - $totalActual;
-        return $sisa > 0 ? $sisa : 0; // int
     }
 
     protected function getLatestPaymentFile(Project $project)
@@ -315,6 +283,56 @@ class ProjectCollection extends ResourceCollection
     }
 
     protected function getRiwayatTermin(Project $project)
+    {
+        return $project->projectTermins->map(function ($termin) {
+            // Pakai float untuk akurasi persen, tapi tampilkan nominal dalam rupiah (int)
+            $grossFloat = (float) ($termin->harga_termin ?? 0);
+            $grossInt   = $this->rupiahInt($grossFloat);
+
+            // Actual: prioritas pakai kolom actual_payment (info input)
+            $actualFromDb = $termin->actual_payment;
+            $pphPercentDb = (float) ($termin->pph ?? 0); // fallback bila actual null
+
+            if (!is_null($actualFromDb)) {
+                $actualFloat = (float) $actualFromDb;
+                $actualInt   = $this->rupiahInt($actualFloat);
+
+                // PPh = gross - actual (INT, dibulatkan ke rupiah)
+                $pphNominalInt = $this->rupiahInt(max(0, $grossInt - $actualInt));
+                // Persen dihitung dari nilai float agar akurat
+                $pphPercentOut = $grossFloat > 0
+                    ? round((max(0, $grossFloat - $actualFloat) / $grossFloat) * 100, 2)
+                    : 0.0;
+            } else {
+                // Fallback: kalau actual_payment kosong, hitung dari persen yang tersimpan
+                $pphNominalInt = $this->rupiahInt($grossFloat * ($pphPercentDb / 100));
+                $actualInt     = $this->rupiahInt(max(0, $grossFloat - ($grossFloat * ($pphPercentDb / 100))));
+                $pphPercentOut = $pphPercentDb;
+            }
+
+            return [
+                'id'               => (int) $termin->id,
+                'harga_termin'     => $grossInt,   // int rupiah
+                'pph'              => [
+                    'percent' => (float) $pphPercentOut,
+                    'nominal' => $pphNominalInt,    // int rupiah
+                ],
+                'actual_payment'   => $actualInt,  // int rupiah (info saja)
+                'deskripsi_termin' => $termin->deskripsi_termin,
+                'riwayat_type_termin_proyek' => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
+                'tanggal'          => $termin->tanggal_payment,
+                'file_attachment'  => $termin->file_attachment_pembayaran
+                    ? [
+                        'name' => pathinfo($termin->file_attachment_pembayaran, PATHINFO_FILENAME),
+                        'link' => asset("storage/{$termin->file_attachment_pembayaran}"),
+                    ]
+                    : null,
+            ];
+        })->toArray();
+    }
+
+
+   /*  protected function getRiwayatTermin(Project $project)
     {
         return $project->projectTermins->map(function ($termin) {
             $gross      = $this->rupiahInt($termin->harga_termin);
@@ -347,42 +365,9 @@ class ProjectCollection extends ResourceCollection
                     : null,
             ];
         })->toArray();
-    }
-
-    /* protected function getRiwayatTermin(Project $project)
-    {
-        return $project->projectTermins->map(function ($termin) {
-            return [
-                'id' => $termin->id,
-                'harga_termin' => $termin->harga_termin,
-                'deskripsi_termin' => $termin->deskripsi_termin,
-                'type_termin_spb' => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
-                'tanggal' => $termin->tanggal_payment,
-                'file_attachment' => $termin->file_attachment_pembayaran
-                    ? [
-                        'name' => pathinfo($termin->file_attachment_pembayaran, PATHINFO_FILENAME),
-                        'link' => asset("storage/{$termin->file_attachment_pembayaran}"),
-                    ]
-                    : null,
-            ];
-        })->toArray();
     } */
 
-  /*   protected function convertTypeTermin($status)
-    {
-        if (is_array($status)) {
-            $id = $status['id'] ?? null;
-        } else {
-            $id = (string) $status;
-        }
-
-        return [
-            "id" => $id,
-            "name" => is_null($id) ? "Unknown" : ($id == Project::TYPE_TERMIN_PROYEK_LUNAS ? "Lunas" : "Belum Lunas"),
-        ];
-    } */
-
-        protected function convertTypeTermin($status)
+    protected function convertTypeTermin($status)
     {
         // ① Status kosong → default
         if (empty($status) || (is_array($status) && empty($status['id']))) {
@@ -411,55 +396,6 @@ class ProjectCollection extends ResourceCollection
     
         return $decoded ?? ["id" => null, "name" => "Unknown"];
     }
-
-    /* protected function costProgress(Project $project): array
-    {
-        $totalPurchaseCost = $project->purchases()
-            ->whereIn('tab', [
-                Purchase::TAB_SUBMIT,
-                Purchase::TAB_VERIFIED,
-                Purchase::TAB_PAYMENT_REQUEST,
-                Purchase::TAB_PAID,
-            ])
-            ->get()                     // ← ambil sebagai Collection
-            ->sum('net_total');         // ← accessor dihitung di PHP, bukan SQL
-
-        $att = Attendance::where('project_id', $project->id)
-            ->where('status', Attendance::ATTENDANCE_OUT)
-            ->selectRaw('
-                SUM(daily_salary)           AS daily,
-                SUM(hourly_overtime_salary) AS overtime,
-                SUM(late_cut)               AS late_cut
-            ')
-            ->first();
-
-        $totalPayrollCost = ($att->daily ?? 0)
-                        + ($att->overtime ?? 0)
-                        - ($att->late_cut ?? 0);
-
-        $realCost = $totalPurchaseCost + $totalPayrollCost;
-
-        $percent = $project->cost_estimate > 0
-            ? round(($realCost / $project->cost_estimate) * 100, 2)
-            : 0;
-
-        $status = Project::STATUS_OPEN;
-        if ($percent > 90 && $percent < 100) {
-            $status = Project::STATUS_NEED_TO_CHECK;
-        } elseif ($percent >= 100) {
-            $status = Project::STATUS_CLOSED;
-        }
-
-        $project->update(['status_cost_progres' => $status]);
-
-        return [
-            'status_cost_progres' => $status,
-            'percent'             => $percent . '%',
-            'real_cost'           => $realCost,
-            'purchase_cost'       => $totalPurchaseCost,
-            'payroll_cost'        => $totalPayrollCost,
-        ];
-    } */
 
     protected function costProgress(Project $project): array
     {
@@ -520,8 +456,87 @@ class ProjectCollection extends ResourceCollection
         ];
     }
 
+     /* protected function getRiwayatTermin(Project $project)
+    {
+        return $project->projectTermins->map(function ($termin) {
+            return [
+                'id' => $termin->id,
+                'harga_termin' => $termin->harga_termin,
+                'deskripsi_termin' => $termin->deskripsi_termin,
+                'type_termin_spb' => $this->convertTypeTermin($this->decodeJson($termin->type_termin)),
+                'tanggal' => $termin->tanggal_payment,
+                'file_attachment' => $termin->file_attachment_pembayaran
+                    ? [
+                        'name' => pathinfo($termin->file_attachment_pembayaran, PATHINFO_FILENAME),
+                        'link' => asset("storage/{$termin->file_attachment_pembayaran}"),
+                    ]
+                    : null,
+            ];
+        })->toArray();
+    } */
 
+  /*   protected function convertTypeTermin($status)
+    {
+        if (is_array($status)) {
+            $id = $status['id'] ?? null;
+        } else {
+            $id = (string) $status;
+        }
 
+        return [
+            "id" => $id,
+            "name" => is_null($id) ? "Unknown" : ($id == Project::TYPE_TERMIN_PROYEK_LUNAS ? "Lunas" : "Belum Lunas"),
+        ];
+    } */
+
+    /* protected function costProgress(Project $project): array
+    {
+        $totalPurchaseCost = $project->purchases()
+            ->whereIn('tab', [
+                Purchase::TAB_SUBMIT,
+                Purchase::TAB_VERIFIED,
+                Purchase::TAB_PAYMENT_REQUEST,
+                Purchase::TAB_PAID,
+            ])
+            ->get()                     // ← ambil sebagai Collection
+            ->sum('net_total');         // ← accessor dihitung di PHP, bukan SQL
+
+        $att = Attendance::where('project_id', $project->id)
+            ->where('status', Attendance::ATTENDANCE_OUT)
+            ->selectRaw('
+                SUM(daily_salary)           AS daily,
+                SUM(hourly_overtime_salary) AS overtime,
+                SUM(late_cut)               AS late_cut
+            ')
+            ->first();
+
+        $totalPayrollCost = ($att->daily ?? 0)
+                        + ($att->overtime ?? 0)
+                        - ($att->late_cut ?? 0);
+
+        $realCost = $totalPurchaseCost + $totalPayrollCost;
+
+        $percent = $project->cost_estimate > 0
+            ? round(($realCost / $project->cost_estimate) * 100, 2)
+            : 0;
+
+        $status = Project::STATUS_OPEN;
+        if ($percent > 90 && $percent < 100) {
+            $status = Project::STATUS_NEED_TO_CHECK;
+        } elseif ($percent >= 100) {
+            $status = Project::STATUS_CLOSED;
+        }
+
+        $project->update(['status_cost_progres' => $status]);
+
+        return [
+            'status_cost_progres' => $status,
+            'percent'             => $percent . '%',
+            'real_cost'           => $realCost,
+            'purchase_cost'       => $totalPurchaseCost,
+            'payroll_cost'        => $totalPayrollCost,
+        ];
+    } */
 
     // protected function tukangHarianSalary($query) {
     //     return (int) $query->selectRaw("SUM(current_salary + current_overtime_salary) as total")->where("work_type", true)->first()->total;
@@ -530,5 +545,39 @@ class ProjectCollection extends ResourceCollection
     // protected function tukangBoronganSalary($query) {
     //     return (int) $query->selectRaw("SUM(current_salary + current_overtime_salary) as total")->where("work_type", false)->first()->total;
     // }
+
+     // Total termin (ACTUAL) = sum(actual per termin)
+    // - Jika kolom actual_payment null, hitung: harga_termin - (harga_termin * pph/100)
+
+    /* protected function getHargaTerminProyek(Project $project)
+    {
+        // Total ACTUAL (bukan gross), dibulatkan ke rupiah per-termin lalu dijumlahkan sebagai int
+        $totalActual = 0;
+
+        foreach ($project->projectTermins as $termin) {
+            $gross      = $this->rupiahInt($termin->harga_termin);
+            $pphPercent = (float) ($termin->pph ?? 0); // persen 0..100
+            $pphNominal = $this->rupiahInt($gross * ($pphPercent / 100));
+
+            // jika actual_payment ada di DB, pakai itu; kalau null, fallback kalkulasi
+            $actual = is_null($termin->actual_payment)
+                ? $this->rupiahInt($gross - $pphNominal)
+                : $this->rupiahInt($termin->actual_payment);
+
+            $totalActual += $actual; // integer safe
+        }
+
+        return $totalActual; // int
+    }
+
+    // Sisa pembayaran = billing - total ACTUAL (semua int rupiah)
+    protected function getDataSisaPemabayaranTerminProyek(Project $project)
+    {
+        $billing     = $this->rupiahInt($project->billing);
+        $totalActual = $this->getHargaTerminProyek($project);
+
+        $sisa = $billing - $totalActual;
+        return $sisa > 0 ? $sisa : 0; // int
+    } */
     
 }
