@@ -66,43 +66,114 @@ class OperationalController extends Controller
     public function index(Request $request)
     {
         $perPage = (int) ($request->get('per_page', 10));
-        $data = OperationalHour::query()
+
+        $pagination = OperationalHour::query()
+            ->with(['projects' => function ($q) {
+                $q->select('id', 'name', 'operational_hour_id'); // butuh FK untuk eager load
+            }])
             ->orderBy('id', 'desc')
             ->paginate($perPage);
 
+        // Bentuk ulang item agar projects hanya {id, name}
+        $items = collect($pagination->items())->map(function ($row) {
+            return [
+                'id'           => $row->id,
+                'ontime_start' => $row->ontime_start,
+                'ontime_end'   => $row->ontime_end,
+                'late_time'    => $row->late_time,
+                'offtime'      => $row->offtime,
+                'deleted_at'   => $row->deleted_at,
+                'projects'     => $row->projects->isNotEmpty()
+                    ? $row->projects->map(fn ($p) => [
+                        'id'   => $p->id,
+                        'name' => $p->name,
+                    ])->values()
+                : null,
+            ];
+        })->values();
+
         return MessageDakama::render([
-            'status' => MessageDakama::SUCCESS,
+            'status'      => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
-            'message' => 'Operational hours fetched.',
-            'data' => $data,
+            'message'     => 'Operational hours fetched.',
+            'data'        => $items, // <- tidak bersarang data.data
+            'pagination'  => [
+                'current_page' => $pagination->currentPage(),
+                'per_page'     => $pagination->perPage(),
+                'total'        => $pagination->total(),
+                'last_page'    => $pagination->lastPage(),
+            ],
         ], MessageDakama::HTTP_OK);
     }
 
+
     public function indexall()
     {
-        $data = OperationalHour::all();
+        $rows = OperationalHour::query()
+            ->with(['projects' => function ($q) {
+                $q->select('id', 'name', 'operational_hour_id');
+            }])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $data = $rows->map(function ($row) {
+            return [
+                'id'           => $row->id,
+                'ontime_start' => $row->ontime_start,
+                'ontime_end'   => $row->ontime_end,
+                'late_time'    => $row->late_time,
+                'offtime'      => $row->offtime,
+                'deleted_at'   => $row->deleted_at,
+                'projects'     => $row->projects->isNotEmpty()
+                    ? $row->projects->map(fn ($p) => [
+                        'id'   => $p->id,
+                        'name' => $p->name,
+                    ])->values()
+                : null,
+            ];
+        })->values();
 
         return MessageDakama::render([
-            'status' => MessageDakama::SUCCESS,
+            'status'      => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
-            'message' => 'Operational hours fetched.',
-            'data' => $data,
+            'message'     => 'Operational hours fetched.',
+            'data'        => $data,
         ], MessageDakama::HTTP_OK);
     }
 
     /** Detail 1 shift by id */
     public function show($id)
     {
-        $row = OperationalHour::find($id);
+        $row = OperationalHour::query()
+            ->with(['projects' => function ($q) {
+                $q->select('id', 'name', 'operational_hour_id');
+            }])
+            ->find($id);
+
         if (!$row) {
             return MessageDakama::warning('Operational hour not found!', MessageDakama::HTTP_NOT_FOUND);
         }
 
+        $data = [
+            'id'           => $row->id,
+            'ontime_start' => $row->ontime_start,
+            'ontime_end'   => $row->ontime_end,
+            'late_time'    => $row->late_time,
+            'offtime'      => $row->offtime,
+            'deleted_at'   => $row->deleted_at,
+            'projects'     => $row->projects->isNotEmpty()
+                ? $row->projects->map(fn ($p) => [
+                    'id'   => $p->id,
+                    'name' => $p->name,
+                ])->values()
+            : null,
+        ];
+
         return MessageDakama::render([
-            'status' => MessageDakama::SUCCESS,
+            'status'      => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
-            'message' => 'Operational hour found!',
-            'data' => $row,
+            'message'     => 'Operational hour found!',
+            'data'        => $data,
         ], MessageDakama::HTTP_OK);
     }
 
