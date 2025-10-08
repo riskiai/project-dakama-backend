@@ -65,16 +65,28 @@ class OperationalController extends Controller
         /** List semua shift (paginate) */
     public function index(Request $request)
     {
-        $perPage = (int) ($request->get('per_page', 10));
+        $perPage = (int) $request->integer('per_page', 10);
 
-        $pagination = OperationalHour::query()
+        $query = OperationalHour::query()
             ->with(['projects' => function ($q) {
                 $q->select('id', 'name', 'operational_hour_id'); // butuh FK untuk eager load
             }])
-            ->orderBy('id', 'desc')
-            ->paginate($perPage);
+            ->orderBy('id', 'desc');
 
-        // Bentuk ulang item agar projects hanya {id, name}
+        // (Opsional) contoh filter jika nanti perlu:
+        if ($request->filled('search')) {
+            $s = $request->string('search');
+            $query->where(function ($q) use ($s) {
+                $q->where('ontime_start', 'like', "%{$s}%")
+                ->orWhere('ontime_end', 'like', "%{$s}%")
+                ->orWhere('late_time', 'like', "%{$s}%")
+                ->orWhere('offtime', 'like', "%{$s}%");
+            });
+        }
+
+        $pagination = $query->paginate($perPage);
+
+        // Bentuk ulang item agar projects hanya {id, name} dan null jika kosong
         $items = collect($pagination->items())->map(function ($row) {
             return [
                 'id'           => $row->id,
@@ -88,7 +100,7 @@ class OperationalController extends Controller
                         'id'   => $p->id,
                         'name' => $p->name,
                     ])->values()
-                : null,
+                    : null,
             ];
         })->values();
 
@@ -96,12 +108,24 @@ class OperationalController extends Controller
             'status'      => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
             'message'     => 'Operational hours fetched.',
-            'data'        => $items, // <- tidak bersarang data.data
-            'pagination'  => [
+            'data'        => $items,
+
+            // === FORMAT PAGINASI ALA LARAVEL ===
+            'links' => [
+                'first' => $pagination->url(1),
+                'last'  => $pagination->url($pagination->lastPage()),
+                'prev'  => $pagination->previousPageUrl(),
+                'next'  => $pagination->nextPageUrl(),
+            ],
+            'meta' => [
                 'current_page' => $pagination->currentPage(),
-                'per_page'     => $pagination->perPage(),
-                'total'        => $pagination->total(),
+                'from'         => $pagination->firstItem(),   // bisa null kalau kosong
                 'last_page'    => $pagination->lastPage(),
+                'links'        => $pagination->linkCollection()->toArray(),
+                'path'         => $request->url(),
+                'per_page'     => $pagination->perPage(),
+                'to'           => $pagination->lastItem(),    // bisa null kalau kosong
+                'total'        => $pagination->total(),
             ],
         ], MessageDakama::HTTP_OK);
     }
