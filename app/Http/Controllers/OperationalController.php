@@ -69,11 +69,10 @@ class OperationalController extends Controller
 
         $query = OperationalHour::query()
             ->with(['projects' => function ($q) {
-                $q->select('id', 'name', 'operational_hour_id'); // butuh FK untuk eager load
+                $q->select('id', 'name', 'operational_hour_id');
             }])
             ->orderBy('id', 'desc');
 
-        // (Opsional) contoh filter jika nanti perlu:
         if ($request->filled('search')) {
             $s = $request->string('search');
             $query->where(function ($q) use ($s) {
@@ -86,7 +85,7 @@ class OperationalController extends Controller
 
         $pagination = $query->paginate($perPage);
 
-        // Bentuk ulang item agar projects hanya {id, name} dan null jika kosong
+        // map item (projects -> null kalau kosong)
         $items = collect($pagination->items())->map(function ($row) {
             return [
                 'id'           => $row->id,
@@ -104,30 +103,26 @@ class OperationalController extends Controller
             ];
         })->values();
 
-        return MessageDakama::render([
-            'status'      => MessageDakama::SUCCESS,
-            'status_code' => MessageDakama::HTTP_OK,
-            'message'     => 'Operational hours fetched.',
-            'data'        => $items,
-
-            // === FORMAT PAGINASI ALA LARAVEL ===
+        // format persis seperti contohmu
+        return response()->json([
+            'data'  => $items,
             'links' => [
                 'first' => $pagination->url(1),
                 'last'  => $pagination->url($pagination->lastPage()),
                 'prev'  => $pagination->previousPageUrl(),
                 'next'  => $pagination->nextPageUrl(),
             ],
-            'meta' => [
+            'meta'  => [
                 'current_page' => $pagination->currentPage(),
-                'from'         => $pagination->firstItem(),   // bisa null kalau kosong
+                'from'         => $pagination->firstItem(),
                 'last_page'    => $pagination->lastPage(),
                 'links'        => $pagination->linkCollection()->toArray(),
                 'path'         => $request->url(),
                 'per_page'     => $pagination->perPage(),
-                'to'           => $pagination->lastItem(),    // bisa null kalau kosong
+                'to'           => $pagination->lastItem(),
                 'total'        => $pagination->total(),
             ],
-        ], MessageDakama::HTTP_OK);
+        ], 200);
     }
 
 
@@ -158,9 +153,6 @@ class OperationalController extends Controller
         })->values();
 
         return MessageDakama::render([
-            'status'      => MessageDakama::SUCCESS,
-            'status_code' => MessageDakama::HTTP_OK,
-            'message'     => 'Operational hours fetched.',
             'data'        => $data,
         ], MessageDakama::HTTP_OK);
     }
@@ -196,7 +188,6 @@ class OperationalController extends Controller
         return MessageDakama::render([
             'status'      => MessageDakama::SUCCESS,
             'status_code' => MessageDakama::HTTP_OK,
-            'message'     => 'Operational hour found!',
             'data'        => $data,
         ], MessageDakama::HTTP_OK);
     }
