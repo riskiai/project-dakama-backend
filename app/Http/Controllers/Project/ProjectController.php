@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Project;
 
+use Carbon\Carbon;
 use App\Models\Role;
 use App\Models\Company;
 use App\Models\Project;
@@ -601,7 +602,7 @@ class ProjectController extends Controller
         }
     }
 
-    public function update(UpdateRequest $request, $id)
+    /* public function update(UpdateRequest $request, $id)
     {
         DB::beginTransaction(); // Mulai transaksi manual
 
@@ -714,7 +715,129 @@ class ProjectController extends Controller
             DB::rollBack();
             return MessageDakama::error($th->getMessage());
         }
+    } */
+
+    public function update(UpdateRequest $request, $id)
+{
+    DB::beginTransaction();
+
+    try {
+        $project = Project::find($id);
+        if (!$project) {
+            return MessageDakama::notFound('Project data not found!');
+        }
+
+        // Kalau kamu memang butuh client_id -> company_id
+        if ($request->filled('client_id')) {
+            $company = Company::find($request->client_id);
+            if (!$company) {
+                throw new \Exception("Client data not found!");
+            }
+            $request->merge(['company_id' => $company->id]);
+        }
+
+        $currentStatus = $project->request_status_owner;
+
+        // === GUARD: hanya proses ganti ID kalau request mengirim 'date' dan valid ===
+        $shouldRegenerateId = false;
+        $newYear = null;
+        $currentYear = null;
+
+        if ($request->filled('date')) {
+            // Validasi parse aman
+            try {
+                $reqDate = Carbon::parse($request->date);
+                $newYear = $reqDate->format('y');
+            } catch (\Throwable $e) {
+                // Jika format tak valid, anggap tidak ada perubahan tahun/ID
+                $newYear = null;
+            }
+
+            if (!empty($project->date)) {
+                try {
+                    $curDate = Carbon::parse($project->date);
+                    $currentYear = $curDate->format('y');
+                } catch (\Throwable $e) {
+                    $currentYear = null;
+                }
+            }
+
+            // Ganti ID hanya jika project punya tanggal lama dan tahunnya memang berubah
+            if ($newYear !== null && $currentYear !== null && $newYear !== $currentYear) {
+                $shouldRegenerateId = true;
+            }
+        }
+
+        if ($shouldRegenerateId) {
+            // Generate ID baru
+            $newId = 'PRO-' . $newYear . '-' . Project::generateSequenceNumber($newYear);
+
+            // Buat row baru (versi aman karena ada banyak relasi), lalu pindahkan FKs
+            Project::create([
+                'id'                   => $newId,
+                'name'                 => $project->name,
+                'billing'              => $project->billing,
+                'cost_estimate'        => $project->cost_estimate,
+                'margin'               => $project->margin,
+                'percent'              => $project->percent,
+                'date'                 => $request->date, // pakai tanggal baru
+                'company_id'           => $project->company_id,
+                'user_id'              => $project->user_id,
+                'operational_hour_id'  => $project->operational_hour_id,
+                'request_status_owner' => $project->request_status_owner,
+                'type_projects'        => $project->type_projects,
+                'no_dokumen_project'   => $project->no_dokumen_project,
+                'file'                 => $project->file,
+            ]);
+
+            // Pindahkan FKs di tabel pivot/relasi terkait
+            DB::table('projects_user_tasks')
+                ->where('project_id', $id)
+                ->update(['project_id' => $newId]);
+
+            // ... relasi lain kalau ada
+
+            // Hapus row lama dan refer ke row baru
+            $project->delete();
+            $project = Project::find($newId);
+        }
+
+        // Reset status jika REJECTED -> PENDING
+        if ($currentStatus == Project::REJECTED) {
+            $project->request_status_owner = Project::PENDING;
+        }
+
+        // Jika saat ini ACTIVE, balikan ke PENDING (sesuai logikamu)
+        if ($project->request_status_owner == Project::ACTIVE) {
+            $project->request_status_owner = Project::PENDING;
+        }
+
+        // Simpan status dulu
+        $project->save();
+
+        // Handle file baru
+        if ($request->hasFile('attachment_file')) {
+            if ($project->file) {
+                Storage::delete($project->file);
+            }
+            $project->file = $request->file('attachment_file')->store(Project::ATTACHMENT_FILE, 'public');
+            $project->save();
+        }
+
+        // Update kolom lain (kecuali array ID pivot)
+        $project->update($request->except(['tasks_id', 'user_id', 'client_id']));
+
+        // Sync pivot
+        $project->tasks()->sync(array_unique($request->input('tasks_id', [])));
+        $project->tenagaKerja()->sync(array_unique($request->input('user_id', [])));
+
+        DB::commit();
+        return MessageDakama::success("Project {$project->name} has been updated successfully.");
+    } catch (\Throwable $th) {
+        DB::rollBack();
+        return MessageDakama::error($th->getMessage());
     }
+}
 
     public function accept($id)
     {
